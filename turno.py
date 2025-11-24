@@ -17,13 +17,14 @@ class Turno:
     
     def __init__(self, nro_turno: int, medico: 'Medico', 
                  paciente: 'Paciente', consultorio: 'Consultorio',
-                 fecha: date, hora: time):
+                 fecha: date, hora_inicio: time, hora_fin: time):
         self.__nroTurno = nro_turno
         self.__medico = medico
         self.__paciente = paciente
         self.__consultorio = consultorio
         self.__fecha = fecha
-        self.__hora = hora
+        self.__hora_inicio = hora_inicio
+        self.__hora_fin = hora_fin
         self.__observaciones = ""
         self.__estado_turno = Libre()
         self.__cambios_estado: List[CambioEstado] = []
@@ -54,9 +55,13 @@ class Turno:
         """Obtiene la fecha del turno"""
         return self.__fecha
     
-    def get_hora(self) -> time:
-        """Obtiene la hora del turno"""
-        return self.__hora
+    def get_hora_inicio(self) -> time:
+        """Obtiene la hora de inicio del turno"""
+        return self.__hora_inicio
+    
+    def get_hora_fin(self) -> time:
+        """Obtiene la hora de fin del turno"""
+        return self.__hora_fin
     
     def get_observaciones(self) -> str:
         """Obtiene las observaciones"""
@@ -81,6 +86,20 @@ class Turno:
             self.__observaciones = observaciones
         else:
             raise ValueError("Las observaciones no pueden estar vacías")
+    
+    def set_hora_inicio(self, hora_inicio: time) -> None:
+        """Modifica la hora de inicio"""
+        if hora_inicio:
+            self.__hora_inicio = hora_inicio
+        else:
+            raise ValueError("La hora de inicio no puede estar vacía")
+    
+    def set_hora_fin(self, hora_fin: time) -> None:
+        """Modifica la hora de fin"""
+        if hora_fin:
+            self.__hora_fin = hora_fin
+        else:
+            raise ValueError("La hora de fin no puede estar vacía")
     
     def set_estado_turno(self, estado_turno) -> None:
         """Modifica el estado del turno"""
@@ -134,4 +153,4 @@ class Turno:
             self.__notificaciones.append(notificacion)
     
     def __repr__(self) -> str:
-        return f"Turno({self.__nroTurno}, {self.__fecha} {self.__hora}, Estado: {self.__estado_turno})"
+        return f"Turno({self.__nroTurno}, {self.__fecha} {self.__hora_inicio}-{self.__hora_fin}, Estado: {self.__estado_turno})"

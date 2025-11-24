@@ -10,7 +10,6 @@ import os
 # Agregar el directorio padre al path para importar módulos
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
 from gestor_turno import GestorTurno
 from data.database import Database
 
@@ -25,15 +24,14 @@ def mostrar_menu():
     print("\n" + "=" * 60)
     print("SISTEMA ABMC DE TURNOS")
     print("=" * 60)
-    print("\n1. Crear nuevos turnos")
+    print("\n1. Registrar nuevo turno")
     print("2. Listar turnos (en memoria)")
     print("3. Listar turnos de la base de datos")
-    print("4. Guardar turnos en base de datos")
-    print("5. Consultar turnos por médico")
-    print("6. Consultar turnos por paciente")
-    print("7. Consultar turnos por fecha")
-    print("8. Eliminar turno")
-    print("9. Salir")
+    print("4. Consultar turnos por médico")
+    print("5. Consultar turnos por paciente")
+    print("6. Consultar turnos por fecha")
+    print("7. Cancelar turno")
+    print("8. Salir")
     print("\n" + "-" * 60)
 
 
@@ -45,7 +43,7 @@ def cargar_medicos_bd() -> list:
         return []
     
     try:
-        medicos = db.obtener_registros("SELECT matricula, nombre, apellido FROM Medico WHERE activo = TRUE")
+        medicos = db.obtener_registros("SELECT matricula, nombre, apellido FROM Medico WHERE activo = TRUE ORDER BY nombre, apellido")
         db.desconectar()
         return medicos
     except Exception as e:
@@ -62,7 +60,7 @@ def cargar_pacientes_bd() -> list:
         return []
     
     try:
-        pacientes = db.obtener_registros("SELECT id_paciente, nombre, apellido FROM Paciente WHERE activo = TRUE")
+        pacientes = db.obtener_registros("SELECT id_paciente, nombre, apellido FROM Paciente WHERE activo = TRUE ORDER BY nombre, apellido")
         db.desconectar()
         return pacientes
     except Exception as e:
@@ -71,25 +69,8 @@ def cargar_pacientes_bd() -> list:
         return []
 
 
-def cargar_consultorios_bd() -> list:
-    """Carga los consultorios de la base de datos"""
-    db = Database()
-    if not db.conectar("127.0.0.1:3306/hospital_db"):
-        print("[ERROR] No se pudo conectar a la base de datos")
-        return []
-    
-    try:
-        consultorios = db.obtener_registros("SELECT id_consultorio, numero FROM Consultorio")
-        db.desconectar()
-        return consultorios
-    except Exception as e:
-        print(f"[ERROR] Error al cargar consultorios: {str(e)}")
-        db.desconectar()
-        return []
-
-
-def cargar_agendas_medico_bd(matricula: int) -> list:
-    """Carga las agendas de un médico desde la base de datos"""
+def cargar_turnos_libres_medico_bd(matricula: int) -> list:
+    """Carga los turnos disponibles (Libre) de un médico desde la BD"""
     db = Database()
     if not db.conectar("127.0.0.1:3306/hospital_db"):
         print("[ERROR] No se pudo conectar a la base de datos")
@@ -97,27 +78,22 @@ def cargar_agendas_medico_bd(matricula: int) -> list:
     
     try:
         query = """
-        SELECT a.id_agenda, a.dia_semana, a.hora_inicio, a.hora_fin, 
-               c.id_consultorio, c.numero as consultorio_numero
-        FROM Agenda a
-        JOIN Consultorio c ON a.id_consultorio = c.id_consultorio
-        WHERE a.matricula = %s AND a.activa = TRUE
-        ORDER BY a.dia_semana, a.hora_inicio
+        SELECT t.id_turno, t.fecha, t.hora_inicio, t.hora_fin, t.id_consultorio,
+               c.numero as consultorio_numero, t.estado
+        FROM Turno t
+        JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
+        WHERE t.matricula = %s AND t.estado = 'Libre' AND t.fecha >= CURDATE()
+        ORDER BY t.fecha, t.hora_inicio
+        LIMIT 20
         """
         
-        agendas = db.obtener_registros(query, (matricula,))
+        turnos = db.obtener_registros(query, (matricula,))
         db.desconectar()
-        return agendas
+        return turnos
     except Exception as e:
-        print(f"[ERROR] Error al cargar agendas: {str(e)}")
+        print(f"[ERROR] Error al cargar turnos disponibles: {str(e)}")
         db.desconectar()
         return []
-
-
-def obtener_dia_semana(fecha: date) -> str:
-    """Obtiene el día de la semana en español"""
-    dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    return dias[fecha.weekday()]
 
 
 def seleccionar_medico() -> dict:
@@ -130,13 +106,39 @@ def seleccionar_medico() -> dict:
     
     print("\nMédicos disponibles:")
     for i, medico in enumerate(medicos, 1):
-        print(f"   {i}. {medico['nombre']} {medico['apellido']} (Mat: {medico['matricula']})")
+        print(f"   {i}. Dr/Dra. {medico['nombre']} {medico['apellido']} (Mat: {medico['matricula']})")
     
     while True:
         try:
             opcion = int(input("\nSelecciona un médico (número): ")) - 1
             if 0 <= opcion < len(medicos):
                 return medicos[opcion]
+            else:
+                print("[ERROR] Opción no válida")
+        except ValueError:
+            print("[ERROR] Ingresa un número válido")
+
+
+def seleccionar_turno_disponible(medico_dict: dict) -> dict:
+    """Permite seleccionar un turno disponible de un médico"""
+    matricula = medico_dict['matricula']
+    turnos = cargar_turnos_libres_medico_bd(matricula)
+    
+    if not turnos:
+        print(f"\n[ERROR] No hay turnos disponibles para Dr/Dra. {medico_dict['nombre']} {medico_dict['apellido']}")
+        return None
+    
+    print(f"\nTurnos disponibles para Dr/Dra. {medico_dict['nombre']} {medico_dict['apellido']}:")
+    print("-" * 60)
+    for i, turno in enumerate(turnos, 1):
+        print(f"   {i}. {turno['fecha']} - {turno['hora_inicio']} a {turno['hora_fin']} (Consultorio #{turno['consultorio_numero']})")
+    print("-" * 60)
+    
+    while True:
+        try:
+            opcion = int(input("\nSelecciona un turno (número): ")) - 1
+            if 0 <= opcion < len(turnos):
+                return turnos[opcion]
             else:
                 print("[ERROR] Opción no válida")
         except ValueError:
@@ -166,331 +168,98 @@ def seleccionar_paciente() -> dict:
             print("[ERROR] Ingresa un número válido")
 
 
-def seleccionar_consultorio() -> dict:
-    """Permite seleccionar un consultorio"""
-    consultorios = cargar_consultorios_bd()
+def registrar_turno_interactivo(gestor: GestorTurno) -> bool:
+    """Permite registrar un nuevo turno de forma interactiva"""
+    print("\n--- Registrar Nuevo Turno ---")
     
-    if not consultorios:
-        print("[ERROR] No hay consultorios disponibles")
-        return None
-    
-    print("\nConsultorios disponibles:")
-    for i, consultorio in enumerate(consultorios, 1):
-        print(f"   {i}. Consultorio #{consultorio['numero']}")
-    
-    while True:
-        try:
-            opcion = int(input("\nSelecciona un consultorio (número): ")) - 1
-            if 0 <= opcion < len(consultorios):
-                return consultorios[opcion]
-            else:
-                print("[ERROR] Opción no válida")
-        except ValueError:
-            print("[ERROR] Ingresa un número válido")
-
-
-def seleccionar_agenda_medico(medico_dict: dict) -> dict:
-    """Permite seleccionar una agenda del médico"""
-    matricula = medico_dict['matricula']
-    agendas = cargar_agendas_medico_bd(matricula)
-    
-    if not agendas:
-        print(f"[ERROR] El médico {medico_dict['nombre']} no tiene agendas disponibles")
-        return None
-    
-    print(f"\nAgendas disponibles para {medico_dict['nombre']} {medico_dict['apellido']}:")
-    for i, agenda in enumerate(agendas, 1):
-        print(f"   {i}. {agenda['dia_semana']} ({agenda['hora_inicio']} - {agenda['hora_fin']}) - Consultorio #{agenda['consultorio_numero']}")
-    
-    while True:
-        try:
-            opcion = int(input("\nSelecciona una agenda (número): ")) - 1
-            if 0 <= opcion < len(agendas):
-                return agendas[opcion]
-            else:
-                print("[ERROR] Opción no válida")
-        except ValueError:
-            print("[ERROR] Ingresa un número válido")
-
-
-def _timedelta_a_time(td) -> time:
-    """Convierte timedelta a time"""
-    if isinstance(td, time):
-        return td
-    total_seconds = int(td.total_seconds())
-    return time(total_seconds // 3600, (total_seconds % 3600) // 60)
-
-
-def validar_turno_en_agenda(fecha: date, hora: time, agenda: dict) -> bool:
-    """Valida que el turno esté dentro del horario de la agenda"""
-    dia_turno = obtener_dia_semana(fecha)
-    
-    # Verificar que sea el mismo día de la semana
-    if dia_turno != agenda['dia_semana']:
-        print(f"[ERROR] El turno es {dia_turno} pero la agenda es {agenda['dia_semana']}")
+    # Paso 1: Seleccionar médico
+    print("\n[PASO 1] Seleccionar Médico")
+    medico_dict = seleccionar_medico()
+    if not medico_dict:
         return False
     
-    # Convertir timedelta a time si es necesario
-    hora_inicio = _timedelta_a_time(agenda['hora_inicio'])
-    hora_fin = _timedelta_a_time(agenda['hora_fin'])
-    
-    # Verificar que esté dentro del horario
-    if not (hora_inicio <= hora < hora_fin):
-        print(f"[ERROR] La hora {hora} no está dentro del horario {hora_inicio} - {hora_fin}")
+    # Paso 2: Seleccionar turno disponible
+    print("\n[PASO 2] Seleccionar Turno Disponible")
+    turno_dict = seleccionar_turno_disponible(medico_dict)
+    if not turno_dict:
         return False
     
-    return True
-
-
-def ingreso_datos_turno() -> dict:
-    """Solicita los datos de un turno"""
-    print("\n--- Datos del Turno ---")
-    
-    # Fecha
-    while True:
-        try:
-            fecha_str = input("Fecha del turno (YYYY-MM-DD): ").strip()
-            fecha = date.fromisoformat(fecha_str)
-            break
-        except ValueError:
-            print("[ERROR] Formato de fecha inválido. Usa YYYY-MM-DD")
-    
-    # Hora
-    while True:
-        try:
-            hora_str = input("Hora del turno (HH:MM): ").strip()
-            hora = time.fromisoformat(hora_str)
-            break
-        except ValueError:
-            print("[ERROR] Formato de hora inválido. Usa HH:MM")
-    
-    # Observaciones
-    observaciones = input("Observaciones (opcional): ").strip()
-    
-    return {
-        "fecha": fecha,
-        "hora": hora,
-        "observaciones": observaciones
-    }
-
-
-def ingreso_datos_turno_con_agenda(agenda: dict) -> dict:
-    """Solicita los datos de un turno validando contra la agenda"""
-    print("\n--- Datos del Turno ---")
-    print(f"Agenda: {agenda['dia_semana']} ({agenda['hora_inicio']} - {agenda['hora_fin']}) - Consultorio #{agenda['consultorio_numero']}")
-    
-    # Fecha
-    while True:
-        try:
-            fecha_str = input(f"Fecha del turno (YYYY-MM-DD) [{obtener_dia_semana(date.today())} será {date.today()}]: ").strip()
-            if not fecha_str:
-                fecha = date.today()
-            else:
-                fecha = date.fromisoformat(fecha_str)
-            
-            # Validar que sea el día correcto de la semana
-            if obtener_dia_semana(fecha) != agenda['dia_semana']:
-                print(f"[ERROR] La fecha debe ser un {agenda['dia_semana']}")
-                continue
-            
-            break
-        except ValueError:
-            print("[ERROR] Formato de fecha inválido. Usa YYYY-MM-DD")
-    
-    # Hora
-    while True:
-        try:
-            hora_str = input(f"Hora del turno (HH:MM) [Entre {agenda['hora_inicio']} y {agenda['hora_fin']}]: ").strip()
-            hora = time.fromisoformat(hora_str)
-            
-            # Validar que esté dentro de la agenda
-            if not validar_turno_en_agenda(fecha, hora, agenda):
-                continue
-            
-            break
-        except ValueError:
-            print("[ERROR] Formato de hora inválido. Usa HH:MM")
-    
-    # Observaciones
-    observaciones = input("Observaciones (opcional): ").strip()
-    
-    return {
-        "fecha": fecha,
-        "hora": hora,
-        "observaciones": observaciones,
-        "id_agenda": agenda['id_agenda'],
-        "id_consultorio": agenda['id_consultorio']
-    }
-
-
-def crear_turnos_interactivo(gestor: GestorTurno) -> bool:
-    """Permite crear turnos de forma interactiva"""
-    cantidad = 1
-    turnos_creados = []
-    
-    while True:
-        print(f"\n--- Turno #{cantidad} ---")
-        
-        # Seleccionar médico
-        medico_dict = seleccionar_medico()
-        if not medico_dict:
-            break
-        
-        # Seleccionar paciente
-        paciente_dict = seleccionar_paciente()
-        if not paciente_dict:
-            break
-        
-        # Seleccionar consultorio
-        consultorio_dict = seleccionar_consultorio()
-        if not consultorio_dict:
-            break
-        
-        # Ingresar datos del turno
-        datos = ingreso_datos_turno()
-        
-        # Crear objeto turno (temporal para demostración)
-        # En una aplicación real, necesitaríamos los objetos Medico, Paciente, Consultorio
-        print(f"\n[OK] Turno creado:")
-        print(f"     Paciente: {paciente_dict['nombre']} {paciente_dict['apellido']}")
-        print(f"     Médico: {medico_dict['nombre']} {medico_dict['apellido']}")
-        print(f"     Consultorio: {consultorio_dict['numero']}")
-        print(f"     Fecha: {datos['fecha']} a las {datos['hora']}")
-        
-        turnos_creados.append({
-            "medico": medico_dict,
-            "paciente": paciente_dict,
-            "consultorio": consultorio_dict,
-            "fecha": datos['fecha'],
-            "hora": datos['hora'],
-            "observaciones": datos['observaciones']
-        })
-        
-        opcion = input("\n¿Crear otro turno? (s/n): ")
-
-        if opcion != 's':
-            break
-        cantidad += 1
-    
-    if turnos_creados:
-        print(f"\n[OK] Se crearon {len(turnos_creados)} turno(s) exitosamente")
-        return True
-    else:
-        print("\n[ERROR] No se crearon turnos")
-        return False
-
-
-def crear_turnos_interactivo_con_agenda(gestor: GestorTurno) -> bool:
-    """Permite crear turnos de forma interactiva usando agendas"""
-    cantidad = 1
-    turnos_creados = []
-    
-    while True:
-        print(f"\n--- Turno #{cantidad} ---")
-        
-        # Seleccionar médico
-        medico_dict = seleccionar_medico()
-        if not medico_dict:
-            break
-        
-        # Cargar y seleccionar agenda del médico
-        agenda = seleccionar_agenda_medico(medico_dict)
-        if not agenda:
-            break
-        
-        # Seleccionar paciente
-        paciente_dict = seleccionar_paciente()
-        if not paciente_dict:
-            break
-        
-        # Ingresar datos del turno validando contra la agenda
-        datos = ingreso_datos_turno_con_agenda(agenda)
-        
-        print(f"\n[OK] Turno creado:")
-        print(f"     Paciente: {paciente_dict['nombre']} {paciente_dict['apellido']}")
-        print(f"     Médico: {medico_dict['nombre']} {medico_dict['apellido']}")
-        print(f"     Consultorio: {datos['id_consultorio']}")
-        print(f"     Fecha: {datos['fecha']} ({obtener_dia_semana(datos['fecha'])}) a las {datos['hora']}")
-        print(f"     Agenda: {agenda['dia_semana']} ({agenda['hora_inicio']} - {agenda['hora_fin']})")
-        
-        turnos_creados.append({
-            "medico": medico_dict,
-            "paciente": paciente_dict,
-            "consultorio": datos['id_consultorio'],
-            "fecha": datos['fecha'],
-            "hora": datos['hora'],
-            "observaciones": datos['observaciones'],
-            "id_agenda": datos['id_agenda']
-        })
-        
-        opcion = input("\n¿Crear otro turno? (s/n): ").strip().lower()
-        if opcion != 's':
-            break
-        cantidad += 1
-    
-    if turnos_creados:
-        print(f"\n[OK] Se crearon {len(turnos_creados)} turno(s) exitosamente")
-        return turnos_creados
-    else:
-        print("\n[ERROR] No se crearon turnos")
-        return []
-
-
-def guardar_turnos_en_bd(turnos: list) -> bool:
-    """Guarda los turnos en la base de datos"""
-    if not turnos:
-        print("[ERROR] No hay turnos para guardar")
+    # Paso 3: Seleccionar paciente
+    print("\n[PASO 3] Seleccionar Paciente")
+    paciente_dict = seleccionar_paciente()
+    if not paciente_dict:
         return False
     
-    print("\n--- Conectando a Base de Datos ---")
+    # Paso 4: Ingresar descripción/observaciones
+    print("\n[PASO 4] Ingresar Descripción")
+    observaciones = input("Descripción/Observaciones del turno (opcional): ").strip()
+    
+    # Paso 5: Confirmar datos
+    print("\n" + "=" * 60)
+    print("CONFIRMAR REGISTRO DE TURNO")
+    print("=" * 60)
+    print(f"Médico: Dr/Dra. {medico_dict['nombre']} {medico_dict['apellido']}")
+    print(f"Paciente: {paciente_dict['nombre']} {paciente_dict['apellido']}")
+    print(f"Fecha: {turno_dict['fecha']}")
+    print(f"Hora: {turno_dict['hora_inicio']} - {turno_dict['hora_fin']}")
+    print(f"Consultorio: #{turno_dict['consultorio_numero']}")
+    if observaciones:
+        print(f"Observaciones: {observaciones}")
+    print("=" * 60)
+    
+    confirmacion = input("\n¿Confirmar registro del turno? (s/n): ").strip().lower()
+    
+    if confirmacion != 's':
+        print("\n[INFO] Registro cancelado")
+        return False
+    
+    # Paso 6: Guardar en la base de datos
+    print("\n[PASO 5] Guardando en Base de Datos...")
     
     db = Database()
-    
     if not db.conectar("127.0.0.1:3306/hospital_db"):
         print("[ERROR] No se pudo conectar a la base de datos")
         return False
     
-    guardados = 0
-    
-    for turno in turnos:
-        try:
-            query = """
-            INSERT INTO Turno (id_paciente, matricula, id_consultorio, fecha, hora, estado, observaciones, id_agenda)
-            VALUES (%s, %s, %s, %s, %s, 'Programado', %s, %s)
-            """
-            
-            params = (
-                turno['paciente']['id_paciente'],
-                turno['medico']['matricula'],
-                turno['consultorio'],
-                turno['fecha'],
-                turno['hora'],
-                turno['observaciones'],
-                turno['id_agenda']
-            )
-            
-            resultado = db.ejecutar_consulta(query, params)
-            
-            if resultado is not None:
-                guardados += 1
-                print(f"[OK] Turno guardado - {turno['paciente']['nombre']} con Dr. {turno['medico']['nombre']}")
+    try:
+        # Actualizar el turno: asignar paciente, cambiar estado a "Programado" y agregar observaciones
+        query = """
+        UPDATE Turno 
+        SET id_paciente = %s, estado = 'Programado', observaciones = %s
+        WHERE id_turno = %s AND estado = 'Libre'
+        """
         
-        except Exception as e:
-            print(f"[ERROR] Error al guardar turno: {str(e)}")
+        params = (
+            paciente_dict['id_paciente'],
+            observaciones,
+            turno_dict['id_turno']
+        )
+        
+        resultado = db.ejecutar_consulta(query, params)
+        
+        if resultado is not None and resultado > 0:
+            print("\n[OK] ¡Turno registrado exitosamente!")
+            print(f"     ID Turno: {turno_dict['id_turno']}")
+            print(f"     Paciente: {paciente_dict['nombre']} {paciente_dict['apellido']}")
+            print(f"     Médico: Dr/Dra. {medico_dict['nombre']} {medico_dict['apellido']}")
+            print(f"     Fecha y Hora: {turno_dict['fecha']} a las {turno_dict['hora_inicio']}")
+            print(f"     Estado: PROGRAMADO")
+            db.desconectar()
+            return True
+        else:
+            print("\n[ERROR] No se pudo registrar el turno. El turno puede haber sido ocupado por otro usuario.")
+            db.desconectar()
+            return False
     
-    db.desconectar()
-    
-    if guardados > 0:
-        print(f"\n[OK] {guardados} turno(s) guardado(s) en la base de datos")
-        return True
-    else:
-        print("\n[ERROR] No se pudo guardar ningún turno")
+    except Exception as e:
+        print(f"\n[ERROR] Error al registrar turno: {str(e)}")
+        db.desconectar()
         return False
 
 
 def listar_turnos_bd() -> bool:
     """Lista todos los turnos de la base de datos"""
-    print("\n--- Conectando a Base de Datos ---")
+    print("\n--- Turnos en Base de Datos ---")
     
     db = Database()
     
@@ -500,30 +269,31 @@ def listar_turnos_bd() -> bool:
     
     try:
         query = """
-        SELECT t.id_turno, p.nombre as paciente_nombre, p.apellido as paciente_apellido,
-               m.nombre as medico_nombre, m.apellido as medico_apellido,
-               c.numero as consultorio, t.fecha, t.hora, t.estado, t.observaciones
+        SELECT t.id_turno, 
+               CASE WHEN t.id_paciente IS NOT NULL 
+                    THEN CONCAT(p.nombre, ' ', p.apellido)
+                    ELSE '--- Libre ---'
+               END as paciente,
+               CONCAT(m.nombre, ' ', m.apellido) as medico,
+               c.numero as consultorio, t.fecha, t.hora_inicio, t.hora_fin, t.estado
         FROM Turno t
-        JOIN Paciente p ON t.id_paciente = p.id_paciente
         JOIN Medico m ON t.matricula = m.matricula
+        LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
         JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
-        ORDER BY t.fecha, t.hora
+        ORDER BY t.fecha, t.hora_inicio
+        LIMIT 50
         """
         
         turnos = db.obtener_registros(query)
         
         if turnos:
             print(f"\n[OK] Se encontraron {len(turnos)} turno(s) en la base de datos:\n")
+            print("-" * 100)
+            print(f"{'ID':<5} {'Paciente':<25} {'Médico':<25} {'Consultorio':<12} {'Fecha':<12} {'Hora':<15} {'Estado':<15}")
+            print("-" * 100)
             for turno in turnos:
-                print(f"   Turno #: {turno['id_turno']}")
-                print(f"   Paciente: {turno['paciente_nombre']} {turno['paciente_apellido']}")
-                print(f"   Médico: {turno['medico_nombre']} {turno['medico_apellido']}")
-                print(f"   Consultorio: {turno['consultorio']}")
-                print(f"   Fecha: {turno['fecha']} a las {turno['hora']}")
-                print(f"   Estado: {turno['estado']}")
-                if turno['observaciones']:
-                    print(f"   Observaciones: {turno['observaciones']}")
-                print()
+                print(f"{turno['id_turno']:<5} {turno['paciente']:<25} {turno['medico']:<25} {turno['consultorio']:<12} {turno['fecha']:<12} {str(turno['hora_inicio']) + ' - ' + str(turno['hora_fin']):<15} {turno['estado']:<15}")
+            print("-" * 100)
             return True
         else:
             print("\n[INFO] No hay turnos registrados en la base de datos")
@@ -539,7 +309,6 @@ def listar_turnos_bd() -> bool:
 
 def main():
     gestor = GestorTurno()
-    turnos_temporales = []
     
     while True:
         limpiar_pantalla()
@@ -550,11 +319,9 @@ def main():
         if opcion == "1":
             limpiar_pantalla()
             print("=" * 60)
-            print("CREAR NUEVOS TURNOS")
+            print("REGISTRAR NUEVO TURNO")
             print("=" * 60)
-            turnos_creados = crear_turnos_interactivo_con_agenda(gestor)
-            if turnos_creados:
-                turnos_temporales = turnos_creados
+            registrar_turno_interactivo(gestor)
             input("\n[ENTER] para continuar...")
         
         elif opcion == "2":
@@ -576,15 +343,6 @@ def main():
         elif opcion == "4":
             limpiar_pantalla()
             print("=" * 60)
-            print("GUARDAR EN BASE DE DATOS")
-            print("=" * 60)
-            guardar_turnos_en_bd(turnos_temporales)
-            turnos_temporales = []
-            input("\n[ENTER] para continuar...")
-        
-        elif opcion == "5":
-            limpiar_pantalla()
-            print("=" * 60)
             print("CONSULTAR TURNOS POR MÉDICO")
             print("=" * 60)
             matricula = input("Ingresa matrícula del médico: ").strip()
@@ -594,7 +352,7 @@ def main():
                 print("[ERROR] Matrícula inválida")
             input("\n[ENTER] para continuar...")
         
-        elif opcion == "6":
+        elif opcion == "5":
             limpiar_pantalla()
             print("=" * 60)
             print("CONSULTAR TURNOS POR PACIENTE")
@@ -606,7 +364,7 @@ def main():
                 print("[ERROR] ID inválido")
             input("\n[ENTER] para continuar...")
         
-        elif opcion == "7":
+        elif opcion == "6":
             limpiar_pantalla()
             print("=" * 60)
             print("CONSULTAR TURNOS POR FECHA")
@@ -619,7 +377,7 @@ def main():
                 print("[ERROR] Formato de fecha inválido")
             input("\n[ENTER] para continuar...")
         
-        elif opcion == "8":
+        elif opcion == "7":
             limpiar_pantalla()
             print("=" * 60)
             print("ELIMINAR TURNO")
@@ -631,7 +389,7 @@ def main():
                 print("[ERROR] ID inválido")
             input("\n[ENTER] para continuar...")
         
-        elif opcion == "9":
+        elif opcion == "8":
             print("\n[OK] ¡Hasta luego!")            
             break
         

@@ -34,7 +34,7 @@ class GestorTurno:
         try:
             query = """
             SELECT t.id_turno, t.id_paciente, t.matricula, t.id_consultorio,
-                   t.fecha, t.hora, t.estado, t.observaciones,
+                   t.fecha, t.hora_inicio, t.hora_fin, t.estado, t.observaciones,
                    p.nombre as paciente_nombre, p.apellido as paciente_apellido,
                    m.nombre as medico_nombre, m.apellido as medico_apellido,
                    c.numero as consultorio_numero
@@ -42,7 +42,7 @@ class GestorTurno:
             JOIN Paciente p ON t.id_paciente = p.id_paciente
             JOIN Medico m ON t.matricula = m.matricula
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
-            ORDER BY t.fecha, t.hora
+            ORDER BY t.fecha, t.hora_inicio
             """
             
             turnos = db.obtener_registros(query)
@@ -85,7 +85,8 @@ class GestorTurno:
     
     # ========== ALTA (CREATE) ==========
     def alta_turno(self, id_paciente: int, matricula: int, id_consultorio: int,
-                   fecha: date, hora: time, observaciones: str = "") -> bool:
+                   fecha: date, hora_inicio: time, hora_fin: time, 
+                   observaciones: str = "") -> bool:
         """
         Da de alta un nuevo turno en la base de datos
         
@@ -94,7 +95,8 @@ class GestorTurno:
             matricula: Matrícula del médico
             id_consultorio: ID del consultorio
             fecha: Fecha del turno
-            hora: Hora del turno
+            hora_inicio: Hora de inicio del turno
+            hora_fin: Hora de fin del turno
             observaciones: Observaciones (opcional)
         
         Returns:
@@ -137,9 +139,9 @@ class GestorTurno:
             # Verificar que no existe un turno duplicado
             query_check_turno = """
             SELECT id_turno FROM Turno 
-            WHERE id_paciente = %s AND matricula = %s AND fecha = %s AND hora = %s
+            WHERE id_paciente = %s AND matricula = %s AND fecha = %s AND hora_inicio = %s
             """
-            turno_existe = db.obtener_registro(query_check_turno, (id_paciente, matricula, fecha, hora))
+            turno_existe = db.obtener_registro(query_check_turno, (id_paciente, matricula, fecha, hora_inicio))
             
             if turno_existe:
                 print("[ERROR] Ya existe un turno para este paciente, médico y horario")
@@ -148,16 +150,16 @@ class GestorTurno:
             
             # Crear el turno
             query = """
-            INSERT INTO Turno (id_paciente, matricula, id_consultorio, fecha, hora, estado, observaciones, id_agenda)
-            VALUES (%s, %s, %s, %s, %s, 'Programado', %s, NULL)
+            INSERT INTO Turno (id_paciente, matricula, id_consultorio, fecha, hora_inicio, hora_fin, estado, observaciones, id_agenda)
+            VALUES (%s, %s, %s, %s, %s, %s, 'Programado', %s, NULL)
             """
             
-            params = (id_paciente, matricula, id_consultorio, fecha, hora, observaciones)
+            params = (id_paciente, matricula, id_consultorio, fecha, hora_inicio, hora_fin, observaciones)
             resultado = db.ejecutar_consulta(query, params)
             
             if resultado is not None and resultado > 0:
                 print(f"[OK] Turno creado exitosamente")
-                print(f"     Fecha: {fecha} a las {hora}")
+                print(f"     Fecha: {fecha} de {hora_inicio} a {hora_fin}")
                 print(f"     Consultorio: {id_consultorio}")
                 self.__turnos_bd = []  # Recargar
                 db.desconectar()
@@ -175,13 +177,13 @@ class GestorTurno:
     # ========== BAJA (DELETE) ==========
     def baja_turno_bd(self, id_turno: int) -> bool:
         """
-        Da de baja un turno en la base de datos
+        Cancela un turno en la base de datos (cambia estado a 'Cancelado')
         
         Args:
-            id_turno: ID del turno a eliminar
+            id_turno: ID del turno a cancelar
         
         Returns:
-            True si se eliminó, False en caso contrario
+            True si se canceló, False en caso contrario
         """
         db = Database()
         
@@ -193,9 +195,11 @@ class GestorTurno:
             # Verificar que el turno existe
             query_check = """
             SELECT t.id_turno, p.nombre as paciente_nombre, p.apellido as paciente_apellido,
-                   t.fecha, t.hora
+                   m.nombre as medico_nombre, m.apellido as medico_apellido,
+                   t.fecha, t.hora_inicio, t.hora_fin, t.estado
             FROM Turno t
-            JOIN Paciente p ON t.id_paciente = p.id_paciente
+            JOIN Medico m ON t.matricula = m.matricula
+            LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
             WHERE t.id_turno = %s
             """
             
@@ -206,30 +210,40 @@ class GestorTurno:
                 db.desconectar()
                 return False
             
-            # Eliminar el turno
-            query = "DELETE FROM Turno WHERE id_turno = %s"
+            # Verificar que el turno no está ya cancelado
+            if turno['estado'] == 'Cancelado':
+                print(f"[ERROR] El turno #{id_turno} ya está cancelado")
+                db.desconectar()
+                return False
+            
+            # Cambiar el estado del turno a 'Cancelado'
+            query = "UPDATE Turno SET estado = 'Cancelado' WHERE id_turno = %s"
             resultado = db.ejecutar_consulta(query, (id_turno,))
             
             if resultado is not None and resultado > 0:
-                print(f"[OK] Turno #{id_turno} eliminado exitosamente")
-                print(f"     Paciente: {turno['paciente_nombre']} {turno['paciente_apellido']}")
-                print(f"     Fecha: {turno['fecha']} a las {turno['hora']}")
+                print(f"[OK] Turno #{id_turno} cancelado exitosamente")
+                print(f"     Fecha: {turno['fecha']} a las {turno['hora_inicio']}")
+                print(f"     Médico: Dr/Dra. {turno['medico_nombre']} {turno['medico_apellido']}")
+                if turno['paciente_nombre']:
+                    print(f"     Paciente: {turno['paciente_nombre']} {turno['paciente_apellido']}")
+                print(f"     Nuevo estado: CANCELADO")
                 self.__turnos_bd = []  # Recargar
                 db.desconectar()
                 return True
             else:
-                print("[ERROR] No se pudo eliminar el turno")
+                print("[ERROR] No se pudo cancelar el turno")
                 db.desconectar()
                 return False
         
         except Exception as e:
-            print(f"[ERROR] Error al eliminar turno: {str(e)}")
+            print(f"[ERROR] Error al cancelar turno: {str(e)}")
             db.desconectar()
             return False
     
     # ========== MODIFICACIÓN (UPDATE) ==========
     def modificar_turno_bd(self, id_turno: int, fecha: Optional[date] = None,
-                          hora: Optional[time] = None, 
+                          hora_inicio: Optional[time] = None,
+                          hora_fin: Optional[time] = None,
                           estado: Optional[str] = None,
                           observaciones: Optional[str] = None) -> bool:
         """
@@ -238,7 +252,8 @@ class GestorTurno:
         Args:
             id_turno: ID del turno a modificar
             fecha: Nueva fecha (opcional)
-            hora: Nueva hora (opcional)
+            hora_inicio: Nueva hora de inicio (opcional)
+            hora_fin: Nueva hora de fin (opcional)
             estado: Nuevo estado (opcional)
             observaciones: Nuevas observaciones (opcional)
         
@@ -265,8 +280,10 @@ class GestorTurno:
             
             if fecha:
                 datos_actualizar['fecha'] = fecha
-            if hora:
-                datos_actualizar['hora'] = hora
+            if hora_inicio:
+                datos_actualizar['hora_inicio'] = hora_inicio
+            if hora_fin:
+                datos_actualizar['hora_fin'] = hora_fin
             if estado:
                 # Validar estados válidos
                 estados_validos = ['Libre', 'Programado', 'Atendido', 'Cancelado', 'Inasistencia']
@@ -325,14 +342,14 @@ class GestorTurno:
         
         try:
             query = """
-            SELECT t.id_turno, t.fecha, t.hora, t.estado, t.observaciones,
+            SELECT t.id_turno, t.fecha, t.hora_inicio, t.hora_fin, t.estado, t.observaciones,
                    m.nombre as medico_nombre, m.apellido as medico_apellido,
                    c.numero as consultorio_numero
             FROM Turno t
             JOIN Medico m ON t.matricula = m.matricula
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
             WHERE t.id_paciente = %s
-            ORDER BY t.fecha, t.hora
+            ORDER BY t.fecha, t.hora_inicio
             """
             
             turnos = db.obtener_registros(query, (id_paciente,))
@@ -371,14 +388,14 @@ class GestorTurno:
         
         try:
             query = """
-            SELECT t.id_turno, t.matricula, t.fecha, t.hora, t.estado, t.observaciones,
+            SELECT t.id_turno, t.matricula, t.fecha, t.hora_inicio, t.hora_fin, t.estado, t.observaciones,
                    p.nombre as paciente_nombre, p.apellido as paciente_apellido,
                    c.numero as consultorio_numero
             FROM Turno t
             JOIN Paciente p ON t.id_paciente = p.id_paciente
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
             WHERE t.matricula = %s
-            ORDER BY t.fecha, t.hora
+            ORDER BY t.fecha, t.hora_inicio
             """
             
             turnos = db.obtener_registros(query, (matricula,))
@@ -417,7 +434,7 @@ class GestorTurno:
         
         try:
             query = """
-            SELECT t.id_turno, t.hora, t.estado, t.observaciones,
+            SELECT t.id_turno, t.hora_inicio, t.hora_fin, t.estado, t.observaciones,
                    p.nombre as paciente_nombre, p.apellido as paciente_apellido,
                    m.nombre as medico_nombre, m.apellido as medico_apellido,
                    c.numero as consultorio_numero
@@ -426,7 +443,7 @@ class GestorTurno:
             JOIN Medico m ON t.matricula = m.matricula
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
             WHERE t.fecha = %s
-            ORDER BY t.hora
+            ORDER BY t.hora_inicio
             """
             
             turnos = db.obtener_registros(query, (fecha,))
@@ -458,7 +475,7 @@ class GestorTurno:
         print(f"   Consultorio: #{turno['consultorio_numero']}")
         if 'fecha' in turno:
             print(f"   Fecha: {turno['fecha']}")
-        print(f"   Hora: {turno['hora']}")
+        print(f"   Horario: {turno['hora_inicio']} - {turno['hora_fin']}")
         print(f"   Estado: {turno['estado']}")
         if turno.get('observaciones'):
             print(f"   Observaciones: {turno['observaciones']}")

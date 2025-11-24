@@ -108,8 +108,9 @@ CREATE TABLE Turno (
     id_consultorio INT NOT NULL,
     id_agenda INT NOT NULL,
     fecha DATE NOT NULL,
-    hora TIME NOT NULL,
-    estado VARCHAR(50) NOT NULL DEFAULT 'Libre',
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL,
+    estado VARCHAR(50) NOT NULL DEFAULT 'Programado',
     observaciones TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_paciente) REFERENCES Paciente(id_paciente) ON DELETE CASCADE,
@@ -120,7 +121,7 @@ CREATE TABLE Turno (
     INDEX idx_medico (matricula),
     INDEX idx_fecha (fecha),
     INDEX idx_estado (estado),
-    UNIQUE KEY unique_turno (id_paciente, matricula, fecha, hora)
+    UNIQUE KEY unique_turno (id_paciente, matricula, fecha, hora_inicio)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

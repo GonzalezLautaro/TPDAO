@@ -110,7 +110,7 @@ CREATE TABLE Turno (
     fecha DATE NOT NULL,
     hora_inicio TIME NOT NULL,
     hora_fin TIME NOT NULL,
-    estado VARCHAR(50) NOT NULL DEFAULT 'Programado',
+    estado VARCHAR(50) NOT NULL DEFAULT 'Libre',
     observaciones TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_paciente) REFERENCES Paciente(id_paciente) ON DELETE CASCADE,

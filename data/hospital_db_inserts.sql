@@ -129,20 +129,23 @@ INSERT INTO Medicamento (id_laboratorio, nombre, dosis, presentacion, observacio
 -- ============================================================
 -- 9. INSERTAR TURNOS (Próximos días)
 -- ============================================================
-INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora, estado, observaciones) VALUES
+INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado, observaciones) VALUES
 -- Turnos del 25 de Noviembre de 2025
-(1, 12345, 1, 1, '2025-11-25', '10:30:00', 'Programado', 'Chequeo de presión arterial'),
-(2, 12345, 1, 1, '2025-11-25', '11:00:00', 'Programado', 'Seguimiento después de procedimiento'),
-(3, 12346, 4, 5, '2025-11-25', '14:00:00', 'Programado', 'Primera consulta neurológica'),
-(4, 12347, 3, 7, '2025-11-25', '15:00:00', 'Programado', 'Revisión de lunar sospechoso'),
+(1, 12345, 1, 1, '2025-11-25', '07:00:00', '07:30:00', 'Programado', 'Chequeo de presión arterial'),
+(2, 12345, 1, 1, '2025-11-25', '07:00:00', '07:30:00', 'Programado', 'Seguimiento después de procedimiento'),
+(3, 12346, 4, 5, '2025-11-25', '07:00:00', '07:30:00', 'Programado', 'Primera consulta neurológica'),
+(4, 12347, 3, 7, '2025-11-25', '07:00:00', '07:30:00', 'Programado', 'Revisión de lunar sospechoso'),
+
 -- Turnos del 26 de Noviembre de 2025
-(5, 12348, 5, 9, '2025-11-26', '09:30:00', 'Programado', 'Control de vacunas'),
-(6, 12349, 6, 11, '2025-11-26', '10:00:00', 'Programado', 'Revisión oftalmológica anual'),
-(7, 12348, 5, 9, '2025-11-26', '14:00:00', 'Programado', 'Tratamiento de otitis'),
+(5, 12348, 5, 9, '2025-11-26', '07:00:00', '07:30:00', 'Programado', 'Control de vacunas'),
+(6, 12349, 6, 11, '2025-11-26', '07:00:00', '07:30:00', 'Programado', 'Revisión oftalmológica anual'),
+(7, 12348, 5, 9, '2025-11-26', '07:00:00', '07:30:00', 'Programado', 'Tratamiento de otitis'),
+
 -- Turnos del 27 de Noviembre de 2025
-(8, 12350, 7, 13, '2025-11-27', '11:00:00', 'Programado', 'Evaluación psicológica'),
-(9, 12345, 1, 3, '2025-11-27', '13:30:00', 'Programado', 'Consulta por palpitaciones'),
-(10, 12346, 4, 5, '2025-11-27', '15:30:00', 'Programado', 'Seguimiento de migrañas');
+(8, 12350, 7, 13, '2025-11-27', '07:00:00', '07:30:00', 'Programado', 'Evaluación psicológica'),
+(9, 12345, 1, 3, '2025-11-27', '07:00:00', '07:30:00', 'Programado', 'Consulta por palpitaciones'),
+(10, 12346, 4, 5, '2025-11-27', '07:00:00', '07:30:00', 'Programado', 'Seguimiento de migrañas');
+
 
 -- ============================================================
 -- 10. REGISTRAR CAMBIOS DE ESTADO DE TURNOS

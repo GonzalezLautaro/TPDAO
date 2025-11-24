@@ -103,7 +103,7 @@ CREATE TABLE Agenda (
 -- ============================================================
 CREATE TABLE Turno (
     id_turno INT PRIMARY KEY AUTO_INCREMENT,
-    id_paciente INT NOT NULL,
+    id_paciente INT NULL,
     matricula INT NOT NULL,
     id_consultorio INT NOT NULL,
     id_agenda INT NOT NULL,
@@ -257,14 +257,14 @@ SELECT
     CONCAT(m.nombre, ' ', m.apellido) AS medico,
     CONCAT(p.nombre, ' ', p.apellido) AS paciente,
     t.fecha,
-    t.hora,
+    CONCAT(t.hora_inicio, ' - ', t.hora_fin) AS horario,
     t.estado,
     c.numero AS consultorio
 FROM Turno t
 JOIN Medico m ON t.matricula = m.matricula
 JOIN Paciente p ON t.id_paciente = p.id_paciente
 JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
-ORDER BY t.fecha, t.hora;
+ORDER BY t.fecha, t.hora_inicio;
 
 -- Vista: Pacientes activos
 CREATE VIEW vista_pacientes_activos AS

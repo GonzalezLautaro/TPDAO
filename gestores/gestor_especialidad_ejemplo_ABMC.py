@@ -211,7 +211,7 @@ def listar_especialidades_bd() -> bool:
         if especialidades:
             print(f"\n[OK] Se encontraron {len(especialidades)} especialidad(es) en la base de datos:\n")
             for especialidad in especialidades:
-                print(f"   Nro Especialida: {especialidad['id_especialidad']}")
+                print(f"   Nro Especialidad: {especialidad['id_especialidad']}")
                 print(f"   Nombre: {especialidad['nombre']}")
                 print(f"   Descripción: {especialidad['descripcion']}")
                 print(f"   Médicos asignados: {especialidad['cantidad_medicos']}")

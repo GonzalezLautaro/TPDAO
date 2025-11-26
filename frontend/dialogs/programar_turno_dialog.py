@@ -1,10 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import sys
 import os
 
-# Agregar path
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE not in sys.path:
     sys.path.insert(0, BASE)
@@ -17,28 +16,23 @@ class ProgramarTurnoDialog:
         self.controller = controller
         self.window = tk.Toplevel(parent)
         self.window.title("Programar Nuevo Turno")
-        self.window.geometry("750x700")
+        self.window.geometry("950x750")
         self.window.resizable(False, False)
         
-        # Variables de estado
         self.paso_actual = 1
         self.medico_seleccionado = None
         self.turno_seleccionado = None
         self.paciente_seleccionado = None
         
-        # Container principal
         self.container = ttk.Frame(self.window)
         self.container.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Título
         self.titulo = ttk.Label(self.container, text="", font=("Arial", 12, "bold"))
         self.titulo.pack(pady=(0, 10))
         
-        # Contenedor de pasos
         self.frame_paso = ttk.Frame(self.container)
         self.frame_paso.pack(fill="both", expand=True, pady=(0, 10))
         
-        # Frame de botones (IMPORTANTE: debe estar fuera del frame_paso)
         self.frame_botones = ttk.Frame(self.container)
         self.frame_botones.pack(fill="x", pady=(10, 0), side="bottom")
         
@@ -50,19 +44,14 @@ class ProgramarTurnoDialog:
             widget.destroy()
     
     def _obtener_medicos_directo(self):
-        """Obtiene médicos directamente de la BD sin pasar por controlador"""
+        """Obtiene médicos directamente de la BD"""
         db = Database()
         if not db.conectar("127.0.0.1:3306/hospital_db"):
-            print("[ERROR] No se pudo conectar a BD")
             return []
         
         try:
-            query = "SELECT matricula, nombre, apellido FROM Medico"
+            query = "SELECT matricula, nombre, apellido FROM Medico WHERE activo = 1 ORDER BY nombre, apellido"
             medicos = db.obtener_registros(query)
-            print(f"[DEBUG] Médicos obtenidos: {len(medicos) if medicos else 0}")
-            if medicos:
-                for m in medicos:
-                    print(f"[DEBUG]   - {m}")
             db.desconectar()
             return medicos if medicos else []
         except Exception as e:
@@ -76,7 +65,6 @@ class ProgramarTurnoDialog:
         self.titulo.config(text="PASO 1/3: Seleccionar Médico")
         self._limpiar_frame()
         
-        # Cargar médicos directamente
         medicos = self._obtener_medicos_directo()
         
         if not medicos:
@@ -84,7 +72,6 @@ class ProgramarTurnoDialog:
             self.window.destroy()
             return
         
-        # Crear listbox con scroll
         frame_lista = ttk.Frame(self.frame_paso)
         frame_lista.pack(fill="both", expand=True)
         
@@ -97,18 +84,15 @@ class ProgramarTurnoDialog:
         scrollbar.config(command=self.listbox_medicos.yview)
         self.listbox_medicos.pack(fill="both", expand=True, pady=5)
         
-        for i, med in enumerate(medicos):
+        for med in medicos:
             label = f"Dr/Dra. {med['nombre']} {med['apellido']} (Mat: {med['matricula']})"
             self.listbox_medicos.insert(tk.END, label)
         
-        # Si hay solo 1, seleccionar automáticamente
         if len(medicos) == 1:
             self.listbox_medicos.selection_set(0)
         
-        # Guardar médicos para referencia
         self.medicos_paso1 = medicos
         
-        # Botones
         self._actualizar_botones(
             btn_siguiente=lambda: self._seleccionar_medico(),
             btn_cancelar=True
@@ -122,16 +106,14 @@ class ProgramarTurnoDialog:
             return
         
         self.medico_seleccionado = self.medicos_paso1[sel[0]]
-        print(f"[DEBUG] Médico seleccionado: {self.medico_seleccionado}")
         self._mostrar_paso_2()
     
     def _mostrar_paso_2(self):
-        """Paso 2: Seleccionar turno disponible agrupado por día"""
+        """Paso 2: Seleccionar turno disponible - VISTA CALENDARIO"""
         self.paso_actual = 2
         self.titulo.config(text=f"PASO 2/3: Seleccionar Turno - Dr/Dra. {self.medico_seleccionado['nombre']} {self.medico_seleccionado['apellido']}")
         self._limpiar_frame()
         
-        # Cargar turnos libres
         turnos = self.controller.obtener_turnos_libres_medico(self.medico_seleccionado['matricula'])
         
         if not turnos:
@@ -139,63 +121,118 @@ class ProgramarTurnoDialog:
             self._mostrar_paso_1()
             return
         
-        # Agrupar turnos por fecha
-        turnos_por_dia = {}
+        # Agrupar por fecha
+        turnos_por_fecha = {}
         for t in turnos:
             fecha = str(t['fecha'])
-            if fecha not in turnos_por_dia:
-                turnos_por_dia[fecha] = []
-            turnos_por_dia[fecha].append(t)
+            if fecha not in turnos_por_fecha:
+                turnos_por_fecha[fecha] = []
+            turnos_por_fecha[fecha].append(t)
         
-        # Crear Treeview con dos niveles
-        self.tree_turnos = ttk.Treeview(self.frame_paso, columns=("horario", "consultorio"), show="tree headings", height=15)
-        self.tree_turnos.heading("#0", text="Fecha")
-        self.tree_turnos.heading("horario", text="Horario")
-        self.tree_turnos.heading("consultorio", text="Consultorio")
+        # Frame de navegación
+        nav_frame = ttk.Frame(self.frame_paso)
+        nav_frame.pack(fill="x", pady=(0, 10))
         
-        self.tree_turnos.column("#0", width=150)
-        self.tree_turnos.column("horario", width=150)
-        self.tree_turnos.column("consultorio", width=80)
+        ttk.Label(nav_frame, text="Selecciona una fecha:", font=("Arial", 9, "bold")).pack(side="left")
         
-        scrollbar = ttk.Scrollbar(self.frame_paso, orient="vertical", command=self.tree_turnos.yview)
-        self.tree_turnos.configure(yscroll=scrollbar.set)
+        self.fecha_var = tk.StringVar(value=sorted(turnos_por_fecha.keys())[0])
+        fecha_combo = ttk.Combobox(nav_frame, textvariable=self.fecha_var, 
+                                   values=sorted(turnos_por_fecha.keys()), state="readonly", width=15)
+        fecha_combo.pack(side="left", padx=10)
+        fecha_combo.bind("<<ComboboxSelected>>", lambda e: self._dibujar_tabla_turnos(turnos_por_fecha))
         
-        self.tree_turnos.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Frame para tabla de turnos
+        tabla_frame = ttk.LabelFrame(self.frame_paso, text="Turnos Disponibles", padding=10)
+        tabla_frame.pack(fill="both", expand=True)
         
-        # Poblar árbol
-        self.turnos_dict = {}
-        for fecha in sorted(turnos_por_dia.keys()):
-            fecha_item = self.tree_turnos.insert("", "end", text=fecha, open=True)
-            
-            for turno in turnos_por_dia[fecha]:
-                horario = f"{turno['hora_inicio']} - {turno['hora_fin']}"
-                item_id = self.tree_turnos.insert(fecha_item, "end", text="", values=(
-                    horario,
-                    f"#{turno['consultorio_numero']}"
-                ))
-                self.turnos_dict[item_id] = turno
+        # Canvas para la tabla interactiva
+        self.canvas_turnos = tk.Canvas(tabla_frame, bg="white", highlightthickness=1)
+        self.canvas_turnos.pack(fill="both", expand=True)
         
-        # Botones
+        # Guardar referencias
+        self.turnos_por_fecha = turnos_por_fecha
+        self.turnos_buttons = {}
+        
+        self._dibujar_tabla_turnos(turnos_por_fecha)
+        
         self._actualizar_botones(
-            btn_siguiente=lambda: self._seleccionar_turno(),
             btn_anterior=lambda: self._mostrar_paso_1(),
             btn_cancelar=True
         )
     
-    def _seleccionar_turno(self):
-        """Valida y pasa al paso 3"""
-        sel = self.tree_turnos.selection()
-        if not sel:
-            messagebox.showwarning("Advertencia", "Selecciona un turno")
+    def _dibujar_tabla_turnos(self, turnos_por_fecha):
+        """Dibuja una tabla visual de turnos disponibles"""
+        self.canvas_turnos.delete("all")
+        self.turnos_buttons = {}
+        
+        fecha_seleccionada = self.fecha_var.get()
+        turnos_fecha = turnos_por_fecha.get(fecha_seleccionada, [])
+        
+        if not turnos_fecha:
+            self.canvas_turnos.create_text(200, 50, text="No hay turnos disponibles para esta fecha", 
+                                          font=("Arial", 10), fill="red")
             return
         
-        item_id = sel[0]
-        if item_id not in self.turnos_dict:
-            messagebox.showwarning("Advertencia", "Debes seleccionar un turno (no una fecha)")
-            return
+        # Configurar canvas
+        y_inicio = 20
+        x_inicio = 20
+        ancho_celda = 140
+        alto_celda = 50
         
-        self.turno_seleccionado = self.turnos_dict[item_id]
+        # Encabezados
+        consultorios = sorted(set(t['consultorio_numero'] for t in turnos_fecha))
+        self.canvas_turnos.create_text(x_inicio - 10, y_inicio + 15, text="Hora", 
+                                      font=("Arial", 9, "bold"), anchor="w")
+        
+        for i, cons in enumerate(consultorios):
+            x = x_inicio + (i + 1) * ancho_celda
+            self.canvas_turnos.create_text(x + ancho_celda // 2, y_inicio + 15, 
+                                          text=f"Consultorio #{cons}", 
+                                          font=("Arial", 8, "bold"))
+        
+        # Horarios únicos
+        horarios = sorted(set(str(t['hora_inicio']) for t in turnos_fecha))
+        
+        # Dibujar celdas
+        y = y_inicio + 40
+        for hora in horarios:
+            # Etiqueta de hora
+            self.canvas_turnos.create_text(x_inicio - 10, y + alto_celda // 2, 
+                                          text=hora[:5], font=("Arial", 8), anchor="w")
+            
+            for i, cons in enumerate(consultorios):
+                x = x_inicio + (i + 1) * ancho_celda
+                
+                # Buscar turno
+                turno = next((t for t in turnos_fecha if str(t['hora_inicio']) == hora and t['consultorio_numero'] == cons), None)
+                
+                if turno:
+                    # Botón disponible (verde)
+                    btn_id = self.canvas_turnos.create_rectangle(x, y, x + ancho_celda - 5, y + alto_celda - 5,
+                                                                 fill="#90EE90", outline="green", width=2)
+                    texto_id = self.canvas_turnos.create_text(x + ancho_celda // 2 - 2, y + alto_celda // 2,
+                                                             text="✓\nDisponible", font=("Arial", 8), fill="darkgreen")
+                    
+                    self.turnos_buttons[btn_id] = turno
+                    self.canvas_turnos.tag_bind(btn_id, "<Button-1>", 
+                                               lambda e, t=turno: self._seleccionar_turno_desde_canvas(t))
+                    self.canvas_turnos.tag_bind(texto_id, "<Button-1>", 
+                                               lambda e, t=turno: self._seleccionar_turno_desde_canvas(t))
+                else:
+                    # Celda vacía (gris)
+                    self.canvas_turnos.create_rectangle(x, y, x + ancho_celda - 5, y + alto_celda - 5,
+                                                       fill="#CCCCCC", outline="gray", width=1)
+                    self.canvas_turnos.create_text(x + ancho_celda // 2 - 2, y + alto_celda // 2,
+                                                  text="✗\nOcupado", font=("Arial", 8), fill="gray")
+            
+            y += alto_celda
+        
+        # Actualizar scroll
+        self.canvas_turnos.configure(scrollregion=self.canvas_turnos.bbox("all"))
+    
+    def _seleccionar_turno_desde_canvas(self, turno):
+        """Selecciona un turno desde el canvas"""
+        self.turno_seleccionado = turno
         self._mostrar_paso_3()
     
     def _mostrar_paso_3(self):
@@ -204,7 +241,6 @@ class ProgramarTurnoDialog:
         self.titulo.config(text="PASO 3/3: Seleccionar Paciente y Observaciones")
         self._limpiar_frame()
         
-        # Cargar pacientes
         pacientes = self.controller.obtener_pacientes()
         
         if not pacientes:
@@ -212,7 +248,6 @@ class ProgramarTurnoDialog:
             self._mostrar_paso_2()
             return
         
-        # Frame para búsqueda
         frame_busqueda = ttk.LabelFrame(self.frame_paso, text="Buscar Paciente", padding=10)
         frame_busqueda.pack(fill="x", pady=(0, 10))
         
@@ -224,7 +259,6 @@ class ProgramarTurnoDialog:
         
         frame_busqueda.columnconfigure(1, weight=1)
         
-        # Frame para pacientes
         frame_paciente = ttk.LabelFrame(self.frame_paso, text="Pacientes", padding=10)
         frame_paciente.pack(fill="both", expand=True, pady=(0, 10))
         
@@ -238,7 +272,6 @@ class ProgramarTurnoDialog:
         self.listbox_pacientes.pack(fill="both", expand=True, pady=5)
         self.listbox_pacientes.bind("<<ListboxSelect>>", lambda e: self._seleccionar_paciente_listbox())
         
-        # Guardar todos los pacientes y crear mapping
         self.todos_los_pacientes = pacientes
         self.pacientes_filtrados = pacientes
         self.pacientes_dict = {}
@@ -248,7 +281,6 @@ class ProgramarTurnoDialog:
         
         self._repoblar_listbox()
         
-        # Frame para observaciones
         frame_obs = ttk.LabelFrame(self.frame_paso, text="Observaciones", padding=10)
         frame_obs.pack(fill="both", expand=True, pady=(0, 10))
         
@@ -257,7 +289,6 @@ class ProgramarTurnoDialog:
         self.text_observaciones = tk.Text(frame_obs, height=4, width=50, font=("Arial", 9))
         self.text_observaciones.pack(fill="both", expand=True)
         
-        # Resumen
         frame_resumen = ttk.LabelFrame(self.frame_paso, text="Resumen", padding=10)
         frame_resumen.pack(fill="x")
         
@@ -268,7 +299,6 @@ Consultorio: #{self.turno_seleccionado['consultorio_numero']}"""
         
         ttk.Label(frame_resumen, text=resumen_text, font=("Arial", 9), justify="left").pack(anchor="w")
         
-        # Botones
         self._actualizar_botones(
             btn_siguiente=lambda: self._confirmar_programacion(),
             btn_anterior=lambda: self._mostrar_paso_2(),
@@ -313,7 +343,6 @@ Consultorio: #{self.turno_seleccionado['consultorio_numero']}"""
         
         observaciones = self.text_observaciones.get("1.0", tk.END).strip()
         
-        # Programar turno
         ok, msg = self.controller.programar_turno(
             id_paciente=self.paciente_seleccionado['id_paciente'],
             matricula=self.medico_seleccionado['matricula'],
@@ -329,21 +358,17 @@ Consultorio: #{self.turno_seleccionado['consultorio_numero']}"""
     
     def _actualizar_botones(self, btn_siguiente=None, btn_anterior=None, btn_cancelar=False, texto_siguiente="Siguiente"):
         """Actualiza los botones según el paso"""
-        # Limpiar botones anteriores
         for widget in self.frame_botones.winfo_children():
             widget.destroy()
         
-        # Crear frame para botones con separación
         btn_frame = ttk.Frame(self.frame_botones)
         btn_frame.pack(fill="x", expand=True)
         
-        # Botón izquierdo (Anterior)
         if btn_anterior:
             ttk.Button(btn_frame, text="← Anterior", command=btn_anterior).pack(side="left", padx=5)
         else:
-            ttk.Frame(btn_frame, width=80).pack(side="left")  # Espaciador
+            ttk.Frame(btn_frame, width=80).pack(side="left")
         
-        # Botones derechos
         right_frame = ttk.Frame(btn_frame)
         right_frame.pack(side="right")
         

@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 
 class EstadoTurno(ABC):
@@ -25,5 +25,21 @@ class EstadoTurno(ABC):
         else:
             raise ValueError("El nombre no puede estar vacío")
     
-    def __repr__(self) -> str:
-        return self.__nombre
+    # Métodos que pueden ser sobrescritos por cada estado
+    @abstractmethod
+    def puede_cancelar(self) -> bool:
+        """Define si este estado permite cancelación"""
+        pass
+    
+    @abstractmethod
+    def puede_atender(self) -> bool:
+        """Define si este estado permite atención"""
+        pass
+    
+    @abstractmethod
+    def puede_marcar_ausencia(self) -> bool:
+        """Define si este estado permite marcar inasistencia"""
+        pass
+    
+    def __str__(self) -> str:
+        return f"{self.__nombre}: {self.__descripcion}"

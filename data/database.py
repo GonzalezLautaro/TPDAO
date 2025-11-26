@@ -1,157 +1,99 @@
 from typing import Optional
 import mysql.connector
 from mysql.connector import Error
-from datetime import datetime
 
 
 class Database:
-    """Clase para manejar la conexión a la base de datos MySQL"""
+    """Singleton para conexión a base de datos MySQL"""
     
-    _instancia: Optional['Database'] = None
-    _inicializado = False
+    __instancia = None
+    __inicializado = False
     
     def __new__(cls):
-        """Patrón Singleton - garantiza una única instancia"""
-        if cls._instancia is None:
-            cls._instancia = super().__new__(cls)
-        return cls._instancia
+        """Implementa el patrón Singleton"""
+        if cls.__instancia is None:
+            cls.__instancia = super().__new__(cls)
+        return cls.__instancia
     
     def __init__(self):
-        """Inicializa la conexión a la BD solo una vez"""
-        if not Database._inicializado:
-            self.connection = None
-            self.host = "127.0.0.1"
-            self.port = 3306
-            self.user = "root"
-            self.password = "123456"  # ← CAMBIAR AQUÍ || si no tienes contraseña, dejar vacío: self.password = ""
-            self.database = "hospital_db"
-            Database._inicializado = True
+        """Inicializa solo una vez"""
+        if not Database.__inicializado:
+            self.__connection = None
+            self.__host = "127.0.0.1"
+            self.__port = 3306
+            self.__user = "root"
+            self.__password = ""
+            self.__database = "hospital_db"
+            Database.__inicializado = True
     
-    def conectar(self, connection_string=None):
+    def conectar(self, config_str: str) -> bool:
         """
         Conecta a la base de datos
-        
-        Args:
-            connection_string: Formato "host:puerto/database" (opcional)
+        config_str: "host:puerto/nombre_bd"
         """
         try:
-            if connection_string:
-                # Parsear connection_string
-                parts = connection_string.split('/')
-                host_port = parts[0].split(':')
-                self.host = host_port[0]
-                self.port = int(host_port[1]) if len(host_port) > 1 else 3306
-                self.database = parts[1] if len(parts) > 1 else "hospital_db"
+            partes = config_str.split("/")
+            host_puerto = partes[0].split(":")
+            self.__host = host_puerto[0]
+            self.__port = int(host_puerto[1]) if len(host_puerto) > 1 else 3306
+            self.__database = partes[1] if len(partes) > 1 else "hospital_db"
             
-            self.connection = mysql.connector.connect(
-                host=self.host,
-                port=self.port,
-                user=self.user,
-                password=self.password,
-                database=self.database
+            self.__connection = mysql.connector.connect(
+                host=self.__host,
+                port=self.__port,
+                user=self.__user,
+                password=self.__password,
+                database=self.__database
             )
-            
-            if self.connection.is_connected():
-                db_info = self.connection.get_server_info()
-                print(f"✓ Conectado a MySQL Server versión {db_info}")
-                return True
-            
+            print(f"✓ Conectado a {self.__database}")
+            return True
         except Error as e:
-            print(f"✗ Error al conectar a la base de datos: {e}")
+            print(f"✗ Error de conexión: {e}")
             return False
     
-    def desconectar(self):
-        """Desconecta de la base de datos"""
-        if self.connection and self.connection.is_connected():
-            self.connection.close()
-            print("✓ Desconexión exitosa")
-    
-    def ejecutar_consulta(self, query, params=None):
-        """
-        Ejecuta una consulta SQL (INSERT, UPDATE, DELETE)
-        
-        Args:
-            query: Consulta SQL
-            params: Parámetros para la consulta (tupla)
-        
-        Returns:
-            Número de filas afectadas o None si hay error
-        """
+    def ejecutar_parametrizado(self, query: str, params: tuple) -> bool:
+        """Ejecuta INSERT, UPDATE, DELETE de forma segura (sin SQL Injection)"""
         try:
-            cursor = self.connection.cursor()
-            
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            
-            self.connection.commit()
-            affected_rows = cursor.rowcount
+            cursor = self.__connection.cursor()
+            cursor.execute(query, params)
+            self.__connection.commit()
             cursor.close()
-            
-            return affected_rows
-        
+            return True
         except Error as e:
-            print(f"✗ Error en consulta: {e}")
-            return None
+            print(f"✗ Error al ejecutar: {e}")
+            self.__connection.rollback()
+            return False
     
-    def obtener_registro(self, query, params=None):
-        """
-        Obtiene un registro de la base de datos
-        
-        Args:
-            query: Consulta SELECT
-            params: Parámetros para la consulta
-        
-        Returns:
-            Un diccionario con el registro o None
-        """
+    def obtener_registros_parametrizados(self, query: str, params: tuple) -> list:
+        """Obtiene registros de forma segura"""
         try:
-            cursor = self.connection.cursor(dictionary=True)
-            
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            
-            resultado = cursor.fetchone()
+            cursor = self.__connection.cursor(dictionary=True)
+            cursor.execute(query, params)
+            resultado = cursor.fetchall()
             cursor.close()
-            
             return resultado
-        
         except Error as e:
-            print(f"✗ Error en consulta: {e}")
-            return None
+            print(f"✗ Error al obtener registros: {e}")
+            return []
     
-    def obtener_registros(self, query, params=None):
-        """
-        Obtiene múltiples registros de la base de datos
-        
-        Args:
-            query: Consulta SELECT
-            params: Parámetros para la consulta
-        
-        Returns:
-            Lista de diccionarios con los registros
-        """
+    def obtener_registros(self, query: str) -> list:
+        """Obtiene registros (SOLO para consultas sin parámetros)"""
         try:
-            cursor = self.connection.cursor(dictionary=True)
-            
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            
-            resultados = cursor.fetchall()
+            cursor = self.__connection.cursor(dictionary=True)
+            cursor.execute(query)
+            resultado = cursor.fetchall()
             cursor.close()
-            
-            return resultados
-        
+            return resultado
         except Error as e:
-            print(f"✗ Error en consulta: {e}")
-            return None
+            print(f"✗ Error: {e}")
+            return []
     
-    def __str__(self):
-        if self.connection and self.connection.is_connected():
-            return f"Conectado a {self.database} en {self.host}:{self.port}"
-        return "No conectado"
+    def desconectar(self) -> None:
+        """Cierra la conexión"""
+        if self.__connection and self.__connection.is_connected():
+            self.__connection.close()
+            print("✓ Desconectado de la base de datos")
+    
+    def __repr__(self) -> str:
+        estado = "✓ Conectado" if self.__connection else "✗ Desconectado"
+        return f"Database({self.__database}, {estado})"

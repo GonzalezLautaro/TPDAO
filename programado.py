@@ -5,19 +5,13 @@ class Programado(EstadoTurno):
     """Estado: Turno reservado"""
     
     def __init__(self):
-        super().__init__("Programado", "Turno reservado")
+        super().__init__("Programado", "Turno reservado por un paciente")
     
-    def cancelar(self):
-        """Transiciona a estado Cancelado"""
-        from cancelado import Cancelado
-        return Cancelado()
+    def puede_cancelar(self) -> bool:
+        return True  # Sí se puede cancelar un turno programado
     
-    def atender(self):
-        """Transiciona a estado Atendido"""
-        from atendido import Atendido
-        return Atendido()
+    def puede_atender(self) -> bool:
+        return True  # Sí se puede atender un turno programado
     
-    def ausente(self):
-        """Transiciona a estado Inasistencia"""
-        from inasistencia import Inasistencia
-        return Inasistencia()
+    def puede_marcar_ausencia(self) -> bool:
+        return True  # Sí se puede marcar ausencia

@@ -10,41 +10,35 @@ class Receta:
     
     def __init__(self, nro_receta: int, fecha_emision: date, 
                  observaciones: str = ""):
-        self.__nroReceta = nro_receta
-        self.__fechaEmision = fecha_emision
+        self.__nro_receta = nro_receta
+        self.__fecha_emision = fecha_emision
         self.__observaciones = observaciones
         self.__detalles: List['DetalleDeReceta'] = []
     
     # Getters
     def get_nro_receta(self) -> int:
-        """Obtiene el número de receta"""
-        return self.__nroReceta
+        return self.__nro_receta
     
     def get_fecha_emision(self) -> date:
-        """Obtiene la fecha de emisión"""
-        return self.__fechaEmision
+        return self.__fecha_emision
     
     def get_observaciones(self) -> str:
-        """Obtiene las observaciones"""
         return self.__observaciones
     
     def get_detalles(self) -> List['DetalleDeReceta']:
-        """Obtiene los detalles de la receta"""
-        return self.__detalles.copy()
+        return self.__detalles
     
     # Setters
     def set_observaciones(self, observaciones: str) -> None:
-        """Modifica las observaciones"""
-        if observaciones and len(observaciones) > 0:
-            self.__observaciones = observaciones
-        else:
-            raise ValueError("Las observaciones no pueden estar vacías")
+        if not isinstance(observaciones, str):
+            raise ValueError("Observaciones debe ser una cadena válida")
+        self.__observaciones = observaciones
     
-    # Métodos de negocio
     def agregar_detalle(self, detalle: 'DetalleDeReceta') -> None:
         """Agrega un detalle (medicamento) a la receta"""
-        if detalle not in self.__detalles:
-            self.__detalles.append(detalle)
+        if not detalle:
+            raise ValueError("El detalle no puede ser nulo")
+        self.__detalles.append(detalle)
     
-    def __repr__(self) -> str:
-        return f"Receta({self.__nroReceta}, {self.__fechaEmision}, {len(self.__detalles)} items)"
+    def __str__(self) -> str:
+        return f"Receta #{self.__nro_receta} | {len(self.__detalles)} medicamentos"

@@ -13,12 +13,14 @@ from cambio_estado import CambioEstado
 
 
 class Turno:
-    """Clase que representa un turno médico"""
+    """Clase que representa un turno médico (Patrón State)"""
     
     def __init__(self, nro_turno: int, medico: 'Medico', 
                  paciente: 'Paciente', consultorio: 'Consultorio',
-                 fecha: date, hora_inicio: time, hora_fin: time):
-        self.__nroTurno = nro_turno
+                 fecha: date, hora_inicio: time, hora_fin: time,
+                 id_turno: int = None):
+        self.__id_turno = id_turno
+        self.__nro_turno = nro_turno
         self.__medico = medico
         self.__paciente = paciente
         self.__consultorio = consultorio
@@ -26,131 +28,107 @@ class Turno:
         self.__hora_inicio = hora_inicio
         self.__hora_fin = hora_fin
         self.__observaciones = ""
-        self.__estado_turno = Libre()
+        self.__estado_turno = Libre()  # Estado inicial
         self.__cambios_estado: List[CambioEstado] = []
         self.__notificaciones: List['Notificacion'] = []
-        
-        # Agregar turno a listas relacionadas
-        medico.agregar_turno(self)
-        paciente.agregar_turno(self)
     
     # Getters
+    def get_id_turno(self) -> int:
+        return self.__id_turno
+    
     def get_nro_turno(self) -> int:
-        """Obtiene el número de turno"""
-        return self.__nroTurno
+        return self.__nro_turno
     
     def get_medico(self) -> 'Medico':
-        """Obtiene el médico del turno"""
         return self.__medico
     
     def get_paciente(self) -> 'Paciente':
-        """Obtiene el paciente del turno"""
         return self.__paciente
     
     def get_consultorio(self) -> 'Consultorio':
-        """Obtiene el consultorio del turno"""
         return self.__consultorio
     
     def get_fecha(self) -> date:
-        """Obtiene la fecha del turno"""
         return self.__fecha
     
     def get_hora_inicio(self) -> time:
-        """Obtiene la hora de inicio del turno"""
         return self.__hora_inicio
     
     def get_hora_fin(self) -> time:
-        """Obtiene la hora de fin del turno"""
         return self.__hora_fin
     
     def get_observaciones(self) -> str:
-        """Obtiene las observaciones"""
         return self.__observaciones
     
     def get_estado_turno(self):
-        """Obtiene el estado del turno"""
+        """Retorna el estado actual del turno"""
         return self.__estado_turno
     
     def get_cambios_estado(self) -> List[CambioEstado]:
-        """Obtiene los cambios de estado"""
-        return self.__cambios_estado.copy()
-    
-    def get_notificaciones(self) -> List['Notificacion']:
-        """Obtiene las notificaciones"""
-        return self.__notificaciones.copy()
+        return self.__cambios_estado
     
     # Setters
     def set_observaciones(self, observaciones: str) -> None:
-        """Modifica las observaciones"""
-        if observaciones and len(observaciones) > 0:
-            self.__observaciones = observaciones
-        else:
-            raise ValueError("Las observaciones no pueden estar vacías")
+        if not observaciones or not isinstance(observaciones, str):
+            raise ValueError("Observaciones debe ser una cadena válida")
+        self.__observaciones = observaciones
     
-    def set_hora_inicio(self, hora_inicio: time) -> None:
-        """Modifica la hora de inicio"""
-        if hora_inicio:
-            self.__hora_inicio = hora_inicio
-        else:
-            raise ValueError("La hora de inicio no puede estar vacía")
-    
-    def set_hora_fin(self, hora_fin: time) -> None:
-        """Modifica la hora de fin"""
-        if hora_fin:
-            self.__hora_fin = hora_fin
-        else:
-            raise ValueError("La hora de fin no puede estar vacía")
-    
-    def set_estado_turno(self, estado_turno) -> None:
-        """Modifica el estado del turno"""
-        self.__estado_turno = estado_turno
-    
-    # Métodos de negocio
-    def programar_turno(self) -> None:
-        """Programa el turno cambiando su estado a Programado"""
+    def set_estado_turno(self, nuevo_estado: 'EstadoTurno') -> None:
+        """Cambia el estado del turno y registra el cambio (Patrón State)"""
         estado_anterior = self.__estado_turno
-        self.__estado_turno = self.__estado_turno.programar()
-        cambio = CambioEstado(date.today(), date.today(), self.__estado_turno)
+        self.__estado_turno = nuevo_estado
+        
+        # Registrar cambio
+        cambio = CambioEstado(
+            fecha_inicio=date.today(),
+            fecha_fin=date.today(),
+            estado_turno=nuevo_estado
+        )
         self.__cambios_estado.append(cambio)
-        print(f"✓ Turno {self.__nroTurno} programado ({estado_anterior} → {self.__estado_turno})")
+        
+        print(f"✓ Estado cambiado: {estado_anterior.get_nombre()} → {nuevo_estado.get_nombre()}")
     
-    def cancelar_turno(self) -> None:
-        """Cancela el turno"""
-        if isinstance(self.__estado_turno, Programado):
-            estado_anterior = self.__estado_turno
-            self.__estado_turno = self.__estado_turno.cancelar()
-            cambio = CambioEstado(date.today(), date.today(), self.__estado_turno)
-            self.__cambios_estado.append(cambio)
-            print(f"✓ Turno {self.__nroTurno} cancelado ({estado_anterior} → {self.__estado_turno})")
+    # Métodos que respetan el State Pattern
+    def cancelar(self) -> bool:
+        """Intenta cancelar el turno si el estado lo permite"""
+        if self.__estado_turno.puede_cancelar():
+            from cancelado import Cancelado
+            self.set_estado_turno(Cancelado())
+            return True
         else:
-            print(f"✗ No se puede cancelar un turno en estado {self.__estado_turno}")
+            print(f"✗ No se puede cancelar un turno en estado {self.__estado_turno.get_nombre()}")
+            return False
     
-    def registrar_asistencia(self) -> None:
-        """Registra la asistencia del paciente"""
-        if isinstance(self.__estado_turno, Programado):
-            estado_anterior = self.__estado_turno
-            self.__estado_turno = self.__estado_turno.atender()
-            cambio = CambioEstado(date.today(), date.today(), self.__estado_turno)
-            self.__cambios_estado.append(cambio)
-            print(f"✓ Asistencia registrada para turno {self.__nroTurno} ({estado_anterior} → {self.__estado_turno})")
+    def atender(self) -> bool:
+        """Intenta atender el turno si el estado lo permite"""
+        if self.__estado_turno.puede_atender():
+            from atendido import Atendido
+            self.set_estado_turno(Atendido())
+            return True
         else:
-            print(f"✗ No se puede registrar asistencia para un turno en estado {self.__estado_turno}")
+            print(f"✗ No se puede atender un turno en estado {self.__estado_turno.get_nombre()}")
+            return False
     
-    def registrar_inasistencia(self) -> None:
-        """Registra la inasistencia del paciente"""
-        if isinstance(self.__estado_turno, Programado):
-            estado_anterior = self.__estado_turno
-            self.__estado_turno = self.__estado_turno.ausente()
-            cambio = CambioEstado(date.today(), date.today(), self.__estado_turno)
-            self.__cambios_estado.append(cambio)
-            print(f"✓ Inasistencia registrada para turno {self.__nroTurno} ({estado_anterior} → {self.__estado_turno})")
+    def marcar_inasistencia(self) -> bool:
+        """Intenta marcar inasistencia si el estado lo permite"""
+        if self.__estado_turno.puede_marcar_ausencia():
+            from inasistencia import Inasistencia
+            self.set_estado_turno(Inasistencia())
+            return True
         else:
-            print(f"✗ No se puede registrar inasistencia para un turno en estado {self.__estado_turno}")
+            print(f"✗ No se puede marcar ausencia en estado {self.__estado_turno.get_nombre()}")
+            return False
     
-    def agregar_notificacion(self, notificacion: 'Notificacion') -> None:
-        """Agrega una notificación al turno"""
-        if notificacion not in self.__notificaciones:
-            self.__notificaciones.append(notificacion)
+    def programar(self) -> bool:
+        """Programa el turno (transiciona de Libre a Programado)"""
+        if isinstance(self.__estado_turno, Libre):
+            self.set_estado_turno(Programado())
+            return True
+        else:
+            print(f"✗ No se puede programar un turno en estado {self.__estado_turno.get_nombre()}")
+            return False
     
-    def __repr__(self) -> str:
-        return f"Turno({self.__nroTurno}, {self.__fecha} {self.__hora_inicio}-{self.__hora_fin}, Estado: {self.__estado_turno})"
+    def __str__(self) -> str:
+        return (f"Turno #{self.__nro_turno} | {self.__paciente.get_nombre()} "
+                f"con Dr. {self.__medico.get_nombre()} | {self.__fecha} "
+                f"{self.__hora_inicio} | {self.__estado_turno.get_nombre()}")

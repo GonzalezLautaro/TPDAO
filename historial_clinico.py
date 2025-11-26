@@ -1,4 +1,5 @@
 from typing import Optional, TYPE_CHECKING
+from datetime import date
 
 if TYPE_CHECKING:
     from turno import Turno
@@ -10,19 +11,21 @@ class HistorialClinico:
     """Clase que representa el historial clínico de un turno"""
     
     def __init__(self, nro_historial: int, turno: 'Turno', 
-                 paciente: 'Paciente'):
-        self.__nroHistorial = nro_historial
+                 paciente: 'Paciente', diagnostico: str = "",
+                 observaciones: str = "", tratamiento: str = ""):
+        self.__nro_historial = nro_historial
         self.__turno = turno
         self.__paciente = paciente
-        self.__tratamiento = ""
-        self.__observaciones = ""
+        self.__diagnostico = diagnostico
+        self.__observaciones = observaciones
+        self.__tratamiento = tratamiento
         self.__receta: Optional['Receta'] = None
-        paciente.agregar_historial(self)
+        self.__fecha_creacion = date.today()
     
     # Getters
     def get_nro_historial(self) -> int:
         """Obtiene el número de historial"""
-        return self.__nroHistorial
+        return self.__nro_historial
     
     def get_turno(self) -> 'Turno':
         """Obtiene el turno asociado"""
@@ -32,48 +35,49 @@ class HistorialClinico:
         """Obtiene el paciente"""
         return self.__paciente
     
-    def get_tratamiento(self) -> str:
-        """Obtiene el tratamiento"""
-        return self.__tratamiento
+    def get_diagnostico(self) -> str:
+        """Obtiene el diagnóstico"""
+        return self.__diagnostico
     
     def get_observaciones(self) -> str:
         """Obtiene las observaciones"""
         return self.__observaciones
     
+    def get_tratamiento(self) -> str:
+        """Obtiene el tratamiento"""
+        return self.__tratamiento
+    
     def get_receta(self) -> Optional['Receta']:
         """Obtiene la receta"""
         return self.__receta
     
-    # Setters
-    def set_tratamiento(self, tratamiento: str) -> None:
-        """Modifica el tratamiento"""
-        if tratamiento and len(tratamiento) > 0:
-            self.__tratamiento = tratamiento
-        else:
-            raise ValueError("El tratamiento no puede estar vacío")
+    def get_fecha_creacion(self) -> date:
+        """Obtiene la fecha de creación del historial clínico"""
+        return self.__fecha_creacion
+    
+    # Setters con validación
+    def set_diagnostico(self, diagnostico: str) -> None:
+        """Modifica el diagnóstico"""
+        if not diagnostico or not isinstance(diagnostico, str):
+            raise ValueError("Diagnóstico debe ser una cadena válida")
+        self.__diagnostico = diagnostico
     
     def set_observaciones(self, observaciones: str) -> None:
         """Modifica las observaciones"""
-        if observaciones and len(observaciones) > 0:
-            self.__observaciones = observaciones
-        else:
-            raise ValueError("Las observaciones no pueden estar vacías")
+        if not isinstance(observaciones, str):
+            raise ValueError("Observaciones debe ser una cadena válida")
+        self.__observaciones = observaciones
     
-    # Métodos de negocio
-    def registrar_diagnostico(self, diagnostico: str) -> None:
-        """Registra el diagnóstico en el historial"""
-        self.__observaciones = diagnostico
-        print(f"✓ Diagnóstico registrado: {diagnostico}")
-    
-    def registrar_tratamiento(self, tratamiento: str) -> None:
-        """Registra el tratamiento en el historial"""
+    def set_tratamiento(self, tratamiento: str) -> None:
+        """Modifica el tratamiento"""
+        if not tratamiento or not isinstance(tratamiento, str):
+            raise ValueError("Tratamiento debe ser una cadena válida")
         self.__tratamiento = tratamiento
-        print(f"✓ Tratamiento registrado: {tratamiento}")
     
-    def vincular_receta(self, receta: 'Receta') -> None:
+    def set_receta(self, receta: 'Receta') -> None:
         """Vincula una receta al historial clínico"""
         self.__receta = receta
-        print(f"✓ Receta {receta.get_nro_receta()} vinculada al historial {self.__nroHistorial}")
     
-    def __repr__(self) -> str:
-        return f"HistorialClinico({self.__nroHistorial}, Turno: {self.__turno.get_nro_turno()})"
+    def __str__(self) -> str:
+        return (f"Historial #{self.__nro_historial} | Paciente: {self.__paciente.get_nombre()} "
+                f"| Diagnóstico: {self.__diagnostico}")

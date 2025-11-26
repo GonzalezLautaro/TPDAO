@@ -1,52 +1,168 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+
 from ..controllers.medicos_controller import MedicosController
-from ..widgets.validated_entry import ValidatedEntry
+from ..dialogs.crear_medico_dialog import CrearMedicoDialog
+from ..dialogs.modificar_medico_dialog import ModificarMedicoDialog
 
 
 class MedicosView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, padding=12)
         self.ctrl = MedicosController()
-
-        form = ttk.LabelFrame(self, text="Nuevo médico")
-        form.pack(fill="x", pady=10)
-
-        ttk.Label(form, text="Matrícula:").grid(row=0, column=0, sticky="w")
-        self.ent_mat = ValidatedEntry(form, only_int=True, width=12); self.ent_mat.grid(row=0, column=1)
-
-        ttk.Label(form, text="Nombre:").grid(row=0, column=2, sticky="w", padx=(10,0))
-        self.ent_nom = ValidatedEntry(form, width=18); self.ent_nom.grid(row=0, column=3)
-
-        ttk.Label(form, text="Apellido:").grid(row=0, column=4, sticky="w", padx=(10,0))
-        self.ent_ape = ValidatedEntry(form, width=18); self.ent_ape.grid(row=0, column=5)
-
-        ttk.Label(form, text="Tel:").grid(row=1, column=0, sticky="w", pady=(8,0))
-        self.ent_tel = ValidatedEntry(form, width=14); self.ent_tel.grid(row=1, column=1, pady=(8,0))
-
-        ttk.Label(form, text="Email:").grid(row=1, column=2, sticky="w", pady=(8,0))
-        self.ent_mail = ValidatedEntry(form, width=22); self.ent_mail.grid(row=1, column=3, pady=(8,0))
-
-        ttk.Label(form, text="Alta (YYYY-MM-DD):").grid(row=1, column=4, sticky="w", pady=(8,0))
-        self.ent_alta = ValidatedEntry(form, width=14); self.ent_alta.grid(row=1, column=5, pady=(8,0))
-
-        ttk.Button(form, text="Crear", command=self._crear).grid(row=1, column=6, padx=(12,0))
-
-        self.tree = ttk.Treeview(self, columns=("matricula","nombre","apellido","telefono","email","fecha_alta"), show="headings", height=14)
-        for c,txt,w in [("matricula","Matrícula",100),("nombre","Nombre",160),("apellido","Apellido",160),("telefono","Teléfono",120),("email","Email",220),("fecha_alta","Alta",100)]:
-            self.tree.heading(c, text=txt); self.tree.column(c, width=w)
-        self.tree.pack(fill="both", expand=True, pady=10)
-
-        ttk.Button(self, text="Refrescar", command=self._refresh).pack(anchor="e")
+        
+        # Frame superior con botones
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Button(btn_frame, text="➕ Crear Nuevo Médico", command=self._crear_medico).pack(side="left")
+        ttk.Button(btn_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
+        
+        # Frame de búsqueda
+        search_frame = ttk.LabelFrame(self, text="Buscar Médico", padding=10)
+        search_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(search_frame, text="Buscar por nombre o matrícula:").pack(side="left")
+        
+        self.entry_busqueda = ttk.Entry(search_frame, width=30)
+        self.entry_busqueda.pack(side="left", padx=(10, 0))
+        self.entry_busqueda.bind("<KeyRelease>", lambda e: self._filtrar_medicos())
+        
+        ttk.Button(search_frame, text="✕ Limpiar", command=self._limpiar_busqueda).pack(side="left", padx=10)
+        
+        # Tabla de médicos
+        tabla_frame = ttk.LabelFrame(self, text="Médicos Registrados")
+        tabla_frame.pack(fill="both", expand=True)
+        
+        # Crear Treeview
+        self.tree = ttk.Treeview(
+            tabla_frame,
+            columns=("matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "acciones"),
+            show="headings",
+            height=14
+        )
+        
+        headers = [
+            ("matricula", "Matrícula", 70),
+            ("nombre", "Nombre", 120),
+            ("apellido", "Apellido", 120),
+            ("telefono", "Teléfono", 100),
+            ("email", "Email", 160),
+            ("fecha_alta", "Fecha Alta", 100),
+            ("acciones", "Acciones", 100)
+        ]
+        
+        for col, text, width in headers:
+            self.tree.heading(col, text=text)
+            self.tree.column(col, width=width)
+        
+        scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind para detectar clicks en la columna de acciones
+        self.tree.bind("<Button-1>", self._on_tree_click)
+        
+        # Almacenar todos los médicos
+        self.todos_medicos = []
+        self.medicos_filtrados = []
+        
         self._refresh()
-
-    def _crear(self):
-        ok, msg = self.ctrl.crear(self.ent_mat.get(), self.ent_nom.get(), self.ent_ape.get(),
-                                  self.ent_tel.get(), self.ent_mail.get(), self.ent_alta.get())
-        if not ok: messagebox.showerror("Error", msg)
+    
+    def _crear_medico(self):
+        """Abre el diálogo para crear un nuevo médico"""
+        dialog = CrearMedicoDialog(self.winfo_toplevel(), self.ctrl)
+        self.winfo_toplevel().wait_window(dialog.window)
         self._refresh()
-
+    
+    def _limpiar_busqueda(self):
+        """Limpia el campo de búsqueda"""
+        self.entry_busqueda.delete(0, tk.END)
+        self._refresh()
+    
+    def _filtrar_medicos(self):
+        """Filtra los médicos según el texto de búsqueda"""
+        texto_busqueda = self.entry_busqueda.get().lower().strip()
+        
+        if not texto_busqueda:
+            self.medicos_filtrados = self.todos_medicos
+        else:
+            self.medicos_filtrados = [
+                m for m in self.todos_medicos
+                if (texto_busqueda in f"{m['nombre']} {m['apellido']}".lower() or
+                    texto_busqueda in str(m['matricula']))
+            ]
+        
+        self._repoblar_tabla()
+    
+    def _repoblar_tabla(self):
+        """Repuebla la tabla con los médicos filtrados"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        for m in self.medicos_filtrados:
+            self.tree.insert("", "end", values=(
+                m["matricula"],
+                m["nombre"],
+                m["apellido"],
+                m["telefono"],
+                m["email"],
+                m["fecha_alta"],
+                "✏️ Modificar"
+            ))
+    
+    def _on_tree_click(self, event):
+        """Maneja clicks en la tabla"""
+        try:
+            item = self.tree.identify("item", event.x, event.y)
+            if not item:
+                return
+            
+            # Obtener el ancho de cada columna para detectar qué columna se clickeó
+            col_num = 0
+            col_x = 0
+            
+            for i, col in enumerate(["matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "acciones"]):
+                col_width = self.tree.column(col, "width")
+                if event.x < col_x + col_width:
+                    col_num = i
+                    break
+                col_x += col_width
+            
+            # Si es la columna de acciones (columna 6)
+            if col_num == 6:
+                valores = self.tree.item(item)["values"]
+                matricula = valores[0]
+                nombre = valores[1]
+                apellido = valores[2]
+                telefono = valores[3]
+                email = valores[4]
+                fecha_alta = valores[5]
+                
+                # Abrir diálogo de modificación
+                medico_data = {
+                    "matricula": matricula,
+                    "nombre": nombre,
+                    "apellido": apellido,
+                    "telefono": telefono,
+                    "email": email,
+                    "fecha_alta": fecha_alta
+                }
+                
+                dialog = ModificarMedicoDialog(self.winfo_toplevel(), self.ctrl, medico_data)
+                self.winfo_toplevel().wait_window(dialog.window)
+                self._refresh()
+        
+        except Exception as e:
+            print(f"[ERROR] Error en click: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
     def _refresh(self):
-        for i in self.tree.get_children(): self.tree.delete(i)
-        for m in self.ctrl.listar():
-            self.tree.insert("", "end", values=(m["matricula"], m["nombre"], m["apellido"], m["telefono"], m["email"], m["fecha_alta"]))
+        """Recarga la lista de médicos"""
+        self.todos_medicos = self.ctrl.listar()
+        self.medicos_filtrados = self.todos_medicos
+        self.entry_busqueda.delete(0, tk.END)
+        self._repoblar_tabla()

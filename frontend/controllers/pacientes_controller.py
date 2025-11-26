@@ -63,6 +63,35 @@ class PacientesController:
             db.desconectar()
             return False, f"Error: {str(e)}"
 
+    def dar_de_baja(self, id_paciente):
+        """Da de baja un paciente en la BD"""
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return False, "No se pudo conectar a la BD"
+        
+        try:
+            # Verificar que el paciente existe
+            query_check = "SELECT id_paciente, nombre, apellido FROM Paciente WHERE id_paciente = %s"
+            paciente = db.obtener_registro(query_check, (int(id_paciente),))
+            
+            if not paciente:
+                return False, f"No se encontró paciente con ID {id_paciente}"
+            
+            # Actualizar activo a 0
+            query = "UPDATE Paciente SET activo = 0 WHERE id_paciente = %s"
+            resultado = db.ejecutar_consulta(query, (int(id_paciente),))
+            
+            db.desconectar()
+            
+            if resultado is not None and resultado > 0:
+                return True, f"Paciente {paciente['nombre']} {paciente['apellido']} dado de baja"
+            else:
+                return False, "No se pudo dar de baja al paciente"
+        
+        except Exception as e:
+            db.desconectar()
+            return False, f"Error: {str(e)}"
+
     def listar(self):
         """Lista todos los pacientes de la BD"""
         db = Database()

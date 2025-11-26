@@ -49,7 +49,7 @@ class MedicosView(ttk.Frame):
             ("telefono", "Teléfono", 100),
             ("email", "Email", 160),
             ("fecha_alta", "Fecha Alta", 100),
-            ("acciones", "Acciones", 100)
+            ("acciones", "Acciones", 180)
         ]
         
         for col, text, width in headers:
@@ -110,7 +110,7 @@ class MedicosView(ttk.Frame):
                 m["telefono"],
                 m["email"],
                 m["fecha_alta"],
-                "✏️ Modificar"
+                "✏️ Modificar | 🗑️ Dar de Baja"
             ))
     
     def _on_tree_click(self, event):
@@ -141,24 +141,51 @@ class MedicosView(ttk.Frame):
                 email = valores[4]
                 fecha_alta = valores[5]
                 
-                # Abrir diálogo de modificación
-                medico_data = {
-                    "matricula": matricula,
-                    "nombre": nombre,
-                    "apellido": apellido,
-                    "telefono": telefono,
-                    "email": email,
-                    "fecha_alta": fecha_alta
-                }
+                # Determinar si se clickeó en "Modificar" o "Dar de Baja"
+                # Obtener el ancho relativo de la columna de acciones
+                acciones_col_width = self.tree.column("acciones", "width")
+                acciones_col_x = col_x
                 
-                dialog = ModificarMedicoDialog(self.winfo_toplevel(), self.ctrl, medico_data)
-                self.winfo_toplevel().wait_window(dialog.window)
-                self._refresh()
+                # Dividir en dos mitades
+                mitad = acciones_col_x + (acciones_col_width / 2)
+                
+                if event.x < mitad:
+                    # Modificar
+                    medico_data = {
+                        "matricula": matricula,
+                        "nombre": nombre,
+                        "apellido": apellido,
+                        "telefono": telefono,
+                        "email": email,
+                        "fecha_alta": fecha_alta
+                    }
+                    
+                    dialog = ModificarMedicoDialog(self.winfo_toplevel(), self.ctrl, medico_data)
+                    self.winfo_toplevel().wait_window(dialog.window)
+                    self._refresh()
+                else:
+                    # Dar de Baja
+                    self._dar_de_baja_medico(matricula, nombre, apellido)
         
         except Exception as e:
             print(f"[ERROR] Error en click: {str(e)}")
             import traceback
             traceback.print_exc()
+    
+    def _dar_de_baja_medico(self, matricula, nombre, apellido):
+        """Da de baja un médico"""
+        respuesta = messagebox.askyesno(
+            "Confirmar",
+            f"¿Deseas dar de baja a {nombre} {apellido}?"
+        )
+        
+        if respuesta:
+            ok, msg = self.ctrl.dar_de_baja(matricula)
+            if ok:
+                messagebox.showinfo("Éxito", f"✓ {nombre} {apellido} dado de baja correctamente")
+                self._refresh()
+            else:
+                messagebox.showerror("Error", msg)
     
     def _refresh(self):
         """Recarga la lista de médicos"""

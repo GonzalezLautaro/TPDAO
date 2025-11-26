@@ -64,6 +64,35 @@ class MedicosController:
             db.desconectar()
             return False, f"Error: {str(e)}"
 
+    def dar_de_baja(self, matricula):
+        """Da de baja un médico en la BD"""
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return False, "No se pudo conectar a la BD"
+        
+        try:
+            # Verificar que el médico existe
+            query_check = "SELECT matricula, nombre, apellido FROM Medico WHERE matricula = %s"
+            medico = db.obtener_registro(query_check, (int(matricula),))
+            
+            if not medico:
+                return False, f"No se encontró médico con matrícula {matricula}"
+            
+            # Actualizar activo a 0
+            query = "UPDATE Medico SET activo = 0 WHERE matricula = %s"
+            resultado = db.ejecutar_consulta(query, (int(matricula),))
+            
+            db.desconectar()
+            
+            if resultado is not None and resultado > 0:
+                return True, f"Médico {medico['nombre']} {medico['apellido']} dado de baja"
+            else:
+                return False, "No se pudo dar de baja al médico"
+        
+        except Exception as e:
+            db.desconectar()
+            return False, f"Error: {str(e)}"
+
     def listar(self):
         """Lista todos los médicos de la BD"""
         db = Database()

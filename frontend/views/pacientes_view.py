@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox
 from ..controllers.pacientes_controller import PacientesController
 from ..dialogs.crear_paciente_dialog import CrearPacienteDialog
 from ..dialogs.modificar_paciente_dialog import ModificarPacienteDialog
+from ..dialogs.ver_historial_dialog import VerHistorialDialog
 
 
 class PacientesView(ttk.Frame):
@@ -49,7 +50,7 @@ class PacientesView(ttk.Frame):
             ("telefono", "Teléfono", 100),
             ("nacimiento", "Nacimiento", 100),
             ("direccion", "Dirección", 150),
-            ("acciones", "Acciones", 180)
+            ("acciones", "Acciones", 230)
         ]
         
         for col, text, width in headers:
@@ -110,7 +111,7 @@ class PacientesView(ttk.Frame):
                 p["telefono"],
                 p["nacimiento"],
                 p["direccion"],
-                "✏️ Modificar | 🗑️ Dar de Baja"
+                "✏️ Modificar | 👁️ Historial | 🗑️ Baja"
             ))
     
     def _on_tree_click(self, event):
@@ -141,15 +142,15 @@ class PacientesView(ttk.Frame):
                 nacimiento = valores[4]
                 direccion = valores[5]
                 
-                # Determinar si se clickeó en "Modificar" o "Dar de Baja"
                 # Obtener el ancho relativo de la columna de acciones
                 acciones_col_width = self.tree.column("acciones", "width")
                 acciones_col_x = col_x
                 
-                # Dividir en dos mitades
-                mitad = acciones_col_x + (acciones_col_width / 2)
+                # Dividir en tres secciones
+                sec1 = acciones_col_x + (acciones_col_width / 3)
+                sec2 = acciones_col_x + (acciones_col_width * 2 / 3)
                 
-                if event.x < mitad:
+                if event.x < sec1:
                     # Modificar
                     paciente_data = {
                         "id_paciente": id_paciente,
@@ -163,6 +164,11 @@ class PacientesView(ttk.Frame):
                     dialog = ModificarPacienteDialog(self.winfo_toplevel(), self.ctrl, paciente_data)
                     self.winfo_toplevel().wait_window(dialog.window)
                     self._refresh()
+                
+                elif event.x < sec2:
+                    # Ver Historial
+                    self._ver_historial_paciente(id_paciente, nombre, apellido)
+                
                 else:
                     # Dar de Baja
                     self._dar_de_baja_paciente(id_paciente, nombre, apellido)
@@ -172,6 +178,17 @@ class PacientesView(ttk.Frame):
             import traceback
             traceback.print_exc()
     
+    def _ver_historial_paciente(self, id_paciente, nombre, apellido):
+        """Abre el diálogo para ver el historial del paciente"""
+        historial = self.ctrl.obtener_historial(id_paciente)
+        
+        if not historial:
+            messagebox.showinfo("Historial Clínico", f"{nombre} {apellido}\n\nNo tiene historial médico registrado")
+            return
+        
+        dialog = VerHistorialDialog(self.winfo_toplevel(), nombre, apellido, historial)
+        self.winfo_toplevel().wait_window(dialog.window)
+    
     def _dar_de_baja_paciente(self, id_paciente, nombre, apellido):
         """Da de baja un paciente"""
         respuesta = messagebox.askyesno(
@@ -180,16 +197,17 @@ class PacientesView(ttk.Frame):
         )
         
         if respuesta:
-            ok, msg = self.ctrl.dar_de_baja(id_paciente)
-            if ok:
-                messagebox.showinfo("Éxito", f"✓ {nombre} {apellido} dado de baja correctamente")
+            try:
+                self.ctrl.dar_de_baja_paciente(id_paciente)
+                messagebox.showinfo("Éxito", f"{nombre} {apellido} ha sido dado de baja")
                 self._refresh()
-            else:
-                messagebox.showerror("Error", msg)
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al dar de baja: {str(e)}")
     
     def _refresh(self):
         """Recarga la lista de pacientes"""
-        self.todos_pacientes = self.ctrl.listar()
-        self.pacientes_filtrados = self.todos_pacientes
-        self.entry_busqueda.delete(0, tk.END)
-        self._repoblar_tabla()
+        try:
+            self.todos_pacientes = self.ctrl.obtener_pacientes()
+            self._filtrar_pacientes()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar pacientes: {str(e)}")

@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Ejemplo de uso del ABMC de Médicos con entrada interactiva y almacenamiento en BD
+Ejemplo de uso del ABMC de Médicos
 """
 
-from datetime import date
 import sys
 import os
 
 # Agregar el directorio padre al path para importar módulos
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
+# ✅ IMPORTAR CORRECTAMENTE
 from gestor_medico import GestorMedico
-from especialidad import Especialidad
 from data.database import Database
 
 

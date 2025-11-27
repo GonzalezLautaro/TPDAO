@@ -6,7 +6,8 @@ import os
 # Agregar el directorio padre al path para importar módulos
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from turno import Turno
+# ✅ IMPORTAR CORRECTAMENTE
+from turnos.turno import Turno
 from data.database import Database
 
 

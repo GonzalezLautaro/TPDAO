@@ -10,6 +10,7 @@ import os
 # Agregar el directorio padre al path para importar módulos
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ✅ IMPORTAR CORRECTAMENTE
 from gestor_turno import GestorTurno
 from data.database import Database
 

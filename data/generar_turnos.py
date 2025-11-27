@@ -125,28 +125,23 @@ def generar_turnos_desde_agendas(fecha_inicio: date = None, dias_adelante: int =
                         if hora_fin_turno > hora_fin_agenda:
                             break
                         
-                        # Construir la query INSERT
-                        query_insert = f"""INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado, observaciones)
-VALUES (NULL, {matricula}, {id_consultorio}, {id_agenda}, '{fecha_actual}', '{hora_inicio_turno}', '{hora_fin_turno}', 'Libre', NULL);"""
-                        
-                        # Ejecutar la query
+                        # ✅ CAMBIAR: ejecutar_consulta → ejecutar_parametrizado
                         try:
-                            resultado = db.ejecutar_consulta(
+                            resultado = db.ejecutar_parametrizado(
                                 """INSERT INTO Turno (matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado)
                                 VALUES (%s, %s, %s, %s, %s, %s, 'Libre')""",
                                 (matricula, id_consultorio, id_agenda, fecha_actual, hora_inicio_turno, hora_fin_turno)
                             )
                             
-                            if resultado is not None and resultado > 0:
-                                print(f"✓ {query_insert}")
+                            if resultado:
+                                print(f"✓ Turno creado: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
                                 total_turnos_creados += 1
                             else:
-                                print(f"✗ ERROR: {query_insert}")
+                                print(f"✗ Error al crear turno: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
                                 total_errores += 1
                         
                         except Exception as e:
-                            print(f"✗ ERROR: {query_insert}")
-                            print(f"  Detalle: {str(e)}")
+                            print(f"✗ Error: {str(e)}")
                             total_errores += 1
                         
                         # Avanzar 30 minutos

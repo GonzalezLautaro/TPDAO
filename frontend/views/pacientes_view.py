@@ -92,8 +92,9 @@ class PacientesView(ttk.Frame):
         else:
             self.pacientes_filtrados = [
                 p for p in self.todos_pacientes
-                if (texto_busqueda in f"{p['nombre']} {p['apellido']}".lower() or
-                    texto_busqueda in str(p['id']))
+                # ✅ CAMBIAR: p['nombre'] y p['apellido'] → p['nombre_completo']
+                if (texto_busqueda in p['nombre_completo'].lower() or
+                    texto_busqueda in str(p['id_paciente']))
             ]
         
         self._repoblar_tabla()
@@ -104,12 +105,12 @@ class PacientesView(ttk.Frame):
             self.tree.delete(item)
         
         for p in self.pacientes_filtrados:
+            # ✅ CAMBIAR: p["id"] → p["id_paciente"]
             self.tree.insert("", "end", values=(
-                p["id"],
-                p["nombre"],
-                p["apellido"],
+                p["id_paciente"],
+                p["nombre_completo"],
                 p["telefono"],
-                p["nacimiento"],
+                p["fecha_nacimiento"],
                 p["direccion"],
                 "✏️ Modificar | 👁️ Historial | 🗑️ Baja"
             ))
@@ -207,7 +208,21 @@ class PacientesView(ttk.Frame):
     def _refresh(self):
         """Recarga la lista de pacientes"""
         try:
+            # Limpiar tabla
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            # Cargar pacientes
             self.todos_pacientes = self.ctrl.obtener_pacientes()
-            self._filtrar_pacientes()
+            
+            for paciente in self.todos_pacientes:
+                # ✅ CAMBIAR: paciente['id'] → paciente['id_paciente']
+                self.tree.insert("", "end", values=(
+                    paciente['id_paciente'],  # ← CAMBIAR AQUÍ
+                    paciente['nombre_completo'],
+                    paciente['telefono'],
+                    paciente['fecha_nacimiento'],
+                    paciente['direccion']
+                ))
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar pacientes: {str(e)}")

@@ -45,14 +45,48 @@ class Database:
                 password=self.__password,
                 database=self.__database
             )
-            print(f"✓ Conectado a {self.__database}")
+            # ✅ CAMBIAR: ✓ → [OK]
+            print(f"[OK] Conectado a {self.__database}")
             return True
         except Error as e:
-            print(f"✗ Error de conexión: {e}")
+            # ✅ CAMBIAR: ✗ → [ERROR]
+            print(f"[ERROR] Error de conexión: {e}")
             return False
     
+    def obtener_registro(self, query: str, params: tuple = None):
+        """Obtiene un registro"""
+        try:
+            cursor = self.__connection.cursor(dictionary=True)
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            resultado = cursor.fetchone()
+            cursor.close()
+            return resultado
+        except Error as e:
+            # ✅ CAMBIAR: ✗ → [ERROR]
+            print(f"[ERROR] {e}")
+            return None
+    
+    def obtener_registros(self, query: str, params: tuple = None) -> list:
+        """Obtiene registros"""
+        try:
+            cursor = self.__connection.cursor(dictionary=True)
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            resultado = cursor.fetchall()
+            cursor.close()
+            return resultado
+        except Error as e:
+            # ✅ CAMBIAR: ✗ → [ERROR]
+            print(f"[ERROR] {e}")
+            return []
+    
     def ejecutar_parametrizado(self, query: str, params: tuple) -> bool:
-        """Ejecuta INSERT, UPDATE, DELETE de forma segura (sin SQL Injection)"""
+        """Ejecuta una consulta parametrizada (INSERT, UPDATE, DELETE)"""
         try:
             cursor = self.__connection.cursor()
             cursor.execute(query, params)
@@ -60,40 +94,18 @@ class Database:
             cursor.close()
             return True
         except Error as e:
-            print(f"✗ Error al ejecutar: {e}")
-            self.__connection.rollback()
+            # ✅ CAMBIAR: ✗ → [ERROR]
+            print(f"[ERROR] {e}")
             return False
-    
-    def obtener_registros_parametrizados(self, query: str, params: tuple) -> list:
-        """Obtiene registros de forma segura"""
-        try:
-            cursor = self.__connection.cursor(dictionary=True)
-            cursor.execute(query, params)
-            resultado = cursor.fetchall()
-            cursor.close()
-            return resultado
-        except Error as e:
-            print(f"✗ Error al obtener registros: {e}")
-            return []
-    
-    def obtener_registros(self, query: str) -> list:
-        """Obtiene registros (SOLO para consultas sin parámetros)"""
-        try:
-            cursor = self.__connection.cursor(dictionary=True)
-            cursor.execute(query)
-            resultado = cursor.fetchall()
-            cursor.close()
-            return resultado
-        except Error as e:
-            print(f"✗ Error: {e}")
-            return []
     
     def desconectar(self) -> None:
         """Cierra la conexión"""
         if self.__connection and self.__connection.is_connected():
             self.__connection.close()
-            print("✓ Desconectado de la base de datos")
+            # ✅ CAMBIAR: ✓ → [OK]
+            print("[OK] Desconectado de la base de datos")
     
     def __repr__(self) -> str:
-        estado = "✓ Conectado" if self.__connection else "✗ Desconectado"
+        # ✅ CAMBIAR: ✓ y ✗ → [OK] y [OFFLINE]
+        estado = "[OK] Conectado" if self.__connection else "[OFFLINE] Desconectado"
         return f"Database({self.__database}, {estado})"

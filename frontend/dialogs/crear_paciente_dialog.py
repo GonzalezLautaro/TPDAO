@@ -64,7 +64,7 @@ class CrearPacienteDialog:
     
     def _crear_paciente(self):
         """Valida y crea el paciente"""
-        id_paciente = self.entry_id.get().strip()
+        # ✅ NO usar entry_id - se genera automáticamente en la BD
         nombre = self.entry_nombre.get().strip()
         apellido = self.entry_apellido.get().strip()
         telefono = self.entry_telefono.get().strip()
@@ -72,10 +72,6 @@ class CrearPacienteDialog:
         direccion = self.text_direccion.get("1.0", tk.END).strip()
         
         # Validaciones
-        if not id_paciente:
-            messagebox.showwarning("Advertencia", "El ID del paciente es obligatorio")
-            return
-        
         if not nombre:
             messagebox.showwarning("Advertencia", "El nombre es obligatorio")
             return
@@ -92,18 +88,9 @@ class CrearPacienteDialog:
             messagebox.showwarning("Advertencia", "La dirección es obligatoria")
             return
         
-        # Crear paciente
-        ok, msg = self.controller.crear(
-            id_paciente,
-            nombre,
-            apellido,
-            telefono,
-            nacimiento,
-            direccion
-        )
-        
-        if ok:
-            messagebox.showinfo("Éxito", "✓ Paciente creado exitosamente")
+        # ✅ LLAMAR CON LOS PARÁMETROS CORRECTOS
+        if self.controller.crear_paciente(nombre, apellido, telefono, nacimiento, direccion):
+            messagebox.showinfo("Éxito", f"Paciente {nombre} {apellido} creado correctamente")
             self.window.destroy()
         else:
-            messagebox.showerror("Error", msg)
+            messagebox.showerror("Error", "No se pudo crear el paciente")

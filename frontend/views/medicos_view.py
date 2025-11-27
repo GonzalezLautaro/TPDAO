@@ -189,7 +189,20 @@ class MedicosView(ttk.Frame):
     
     def _refresh(self):
         """Recarga la lista de médicos"""
-        self.todos_medicos = self.ctrl.listar()
-        self.medicos_filtrados = self.todos_medicos
-        self.entry_busqueda.delete(0, tk.END)
-        self._repoblar_tabla()
+        try:
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            medicos = self.ctrl.listar()
+            
+            for medico in medicos:
+                # ✅ CAMBIAR: medico['id'] → medico['matricula']
+                self.tree.insert("", "end", values=(
+                    medico['matricula'],  # ← CAMBIAR AQUÍ
+                    f"{medico['nombre']} {medico['apellido']}",
+                    medico['telefono'],
+                    medico['email'],
+                    medico['fecha_ingreso']
+                ))
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar médicos: {str(e)}")

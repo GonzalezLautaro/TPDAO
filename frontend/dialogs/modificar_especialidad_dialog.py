@@ -29,7 +29,7 @@ class ModificarEspecialidadDialog:
         
         # ID (NO EDITABLE)
         ttk.Label(form_frame, text="ID Especialidad:", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky="w", pady=10, padx=(0, 15))
-        id_label = ttk.Label(form_frame, text=str(especialidad_data['id']), font=("Arial", 10))
+        id_label = ttk.Label(form_frame, text=str(especialidad_data['id_especialidad']), font=("Arial", 10))
         id_label.grid(row=0, column=1, sticky="w", pady=10, padx=(0, 0))
         
         # Nombre
@@ -50,17 +50,14 @@ class ModificarEspecialidadDialog:
         btn_frame = ttk.Frame(container)
         btn_frame.pack(fill="x", side="bottom", expand=False, pady=(10, 0))
         
-        btn_frame.columnconfigure(0, weight=1)
-        
-        ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy).grid(row=0, column=1, padx=5, sticky="e")
-        ttk.Button(btn_frame, text="✓ Guardar Cambios", command=self._modificar_especialidad).grid(row=0, column=2, padx=5, sticky="e")
+        ttk.Button(btn_frame, text="Guardar", command=self._modificar_especialidad).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy).pack(side="left", padx=5)
     
     def _modificar_especialidad(self):
         """Valida y modifica la especialidad"""
         nombre = self.entry_nombre.get().strip()
         descripcion = self.text_descripcion.get("1.0", tk.END).strip()
         
-        # Validaciones
         if not nombre:
             messagebox.showwarning("Advertencia", "El nombre es obligatorio")
             return
@@ -69,11 +66,9 @@ class ModificarEspecialidadDialog:
             messagebox.showwarning("Advertencia", "La descripción es obligatoria")
             return
         
-        # Modificar especialidad
-        ok, msg = self.controller.modificar(self.especialidad_data['id'], nombre, descripcion)
-        
-        if ok:
+        # ✅ CAMBIAR: self.controller.modificar → self.controller.actualizar_especialidad
+        if self.controller.actualizar_especialidad(self.especialidad_data['id_especialidad'], nombre, descripcion):
             messagebox.showinfo("Éxito", "✓ Especialidad modificada exitosamente")
             self.window.destroy()
         else:
-            messagebox.showerror("Error", msg)
+            messagebox.showerror("Error", "No se pudo modificar la especialidad")

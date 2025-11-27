@@ -99,15 +99,16 @@ class EspecialidadesView(ttk.Frame):
             self.tree.delete(item)
         
         for e in self.especialidades_filtradas:
+            # ✅ CAMBIAR: e["id"] → e["id_especialidad"]
             self.tree.insert("", "end", values=(
-                e["id"],
+                e["id_especialidad"],
                 e["nombre"],
                 e["descripcion"],
                 "✏️ Modificar | 🗑️ Eliminar"
             ))
     
     def _on_tree_click(self, event):
-        """Maneja clicks en la tabla"""
+        """Maneja clicks en la tabla de especialidades"""
         try:
             item = self.tree.identify("item", event.x, event.y)
             if not item:
@@ -132,8 +133,13 @@ class EspecialidadesView(ttk.Frame):
                 descripcion = valores[2]
                 
                 # Determinar si se clickeó en "Modificar" o "Eliminar"
-                acciones_col_width = self.tree.column("acciones", "width")
-                acciones_col_x = col_x
+                col_x = 0
+                for i, col in enumerate(["id", "nombre", "descripcion", "acciones"]):
+                    col_width = self.tree.column(col, "width")
+                    if col_num == 3:
+                        acciones_col_width = col_width
+                        acciones_col_x = col_x
+                    col_x += col_width
                 
                 # Dividir en dos mitades
                 mitad = acciones_col_x + (acciones_col_width / 2)
@@ -141,9 +147,9 @@ class EspecialidadesView(ttk.Frame):
                 if event.x < mitad:
                     # Modificar
                     especialidad_data = {
-                        "id": id_especialidad,
-                        "nombre": nombre,
-                        "descripcion": descripcion
+                        "id_especialidad": valores[0],
+                        "nombre": valores[1],
+                        "descripcion": valores[2]
                     }
                     
                     dialog = ModificarEspecialidadDialog(self.winfo_toplevel(), self.ctrl, especialidad_data)
@@ -166,16 +172,18 @@ class EspecialidadesView(ttk.Frame):
         )
         
         if respuesta:
-            ok, msg = self.ctrl.eliminar(id_especialidad)
-            if ok:
-                messagebox.showinfo("Éxito", f"✓ Especialidad '{nombre}' eliminada correctamente")
+            if self.ctrl.eliminar_especialidad(id_especialidad):
+                messagebox.showinfo("Éxito", f"Especialidad '{nombre}' eliminada correctamente")
                 self._refresh()
             else:
-                messagebox.showerror("Error", msg)
+                messagebox.showerror("Error", "No se pudo eliminar la especialidad")
     
     def _refresh(self):
         """Recarga la lista de especialidades"""
-        self.todas_especialidades = self.ctrl.listar()
-        self.especialidades_filtradas = self.todas_especialidades
-        self.entry_busqueda.delete(0, tk.END)
-        self._repoblar_tabla()
+        try:
+            self.todas_especialidades = self.ctrl.listar()
+            self.especialidades_filtradas = self.todas_especialidades
+            self.entry_busqueda.delete(0, tk.END)
+            self._repoblar_tabla()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar especialidades: {str(e)}")

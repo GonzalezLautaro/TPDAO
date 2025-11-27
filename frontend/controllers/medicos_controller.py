@@ -1,5 +1,8 @@
-from datetime import date
-import sys, os
+"""Controlador de médicos"""
+
+import sys
+import os
+from typing import List, Dict
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE not in sys.path:
@@ -10,113 +13,87 @@ from data.database import Database
 
 
 class MedicosController:
+    """Controlador para operaciones de médicos"""
+    
     def __init__(self):
-        self.gestor = GestorMedico()
-
-    def crear(self, matricula, nombre, apellido, tel, email, fecha_alta):
-        """Crea un nuevo médico"""
-        if not matricula or not nombre or not apellido or not email:
-            return False, "Faltan datos obligatorios"
+        self.__gestor = GestorMedico()
+        self.__db = Database()
+    
+    def listar(self) -> List[Dict]:
+        """Obtiene todos los médicos activos (método que busca medicos_view)"""
+        if not self.__db.conectar("127.0.0.1:3306/hospital_db"):
+            return []
         
         try:
-            matricula_int = int(matricula)
-        except ValueError:
-            return False, "La matrícula debe ser un número"
-        
-        try:
-            fecha = date.fromisoformat(fecha_alta)
-        except Exception:
-            return False, "Fecha inválida (YYYY-MM-DD)"
-        
-        ok = self.gestor.alta_medico(matricula_int, nombre, apellido, tel, email, fecha)
-        return (True, "Médico creado") if ok else (False, "No se pudo crear médico")
-
-    def modificar(self, matricula, nombre, apellido, telefono, email, fecha_alta):
-        """Modifica un médico en la BD"""
-        db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db"):
-            return False, "No se pudo conectar a la BD"
-        
-        try:
-            # Validar fecha
-            try:
-                fecha_alta_obj = date.fromisoformat(fecha_alta)
-            except Exception:
-                return False, "Fecha inválida (YYYY-MM-DD)"
+            query = """
+            SELECT matricula, nombre, apellido, telefono, email, fecha_ingreso
+            FROM Medico
+            WHERE activo = TRUE
+            ORDER BY nombre, apellido
+            """
             
+            medicos = self.__db.obtener_registros(query)
+            return medicos if medicos else []
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            return []
+        finally:
+            self.__db.desconectar()
+    
+    def crear_medico(self, matricula: int, nombre: str, apellido: str, 
+                    telefono: str, email: str, fecha_ingreso: str) -> bool:
+        """Crea un nuevo médico"""
+        if not self.__db.conectar("127.0.0.1:3306/hospital_db"):
+            return False
+        
+        try:
+            query = """
+            INSERT INTO Medico (matricula, nombre, apellido, telefono, email, fecha_ingreso, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, TRUE)
+            """
+            
+            params = (matricula, nombre, apellido, telefono, email, fecha_ingreso)
+            resultado = self.__db.ejecutar_parametrizado(query, params)
+            return resultado
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            return False
+        finally:
+            self.__db.desconectar()
+    
+    def actualizar_medico(self, matricula: int, nombre: str, apellido: str, 
+                         telefono: str, email: str) -> bool:
+        """Actualiza datos de un médico"""
+        if not self.__db.conectar("127.0.0.1:3306/hospital_db"):
+            return False
+        
+        try:
             query = """
             UPDATE Medico 
-            SET nombre = %s, apellido = %s, telefono = %s, email = %s, fecha_ingreso = %s
+            SET nombre = %s, apellido = %s, telefono = %s, email = %s
             WHERE matricula = %s
             """
             
-            params = (nombre, apellido, telefono, email, fecha_alta_obj, int(matricula))
-            resultado = db.ejecutar_consulta(query, params)
-            
-            db.desconectar()
-            
-            if resultado is not None and resultado > 0:
-                return True, "Médico modificado exitosamente"
-            else:
-                return False, "No se pudo modificar el médico"
-        
+            params = (nombre, apellido, telefono, email, matricula)
+            resultado = self.__db.ejecutar_parametrizado(query, params)
+            return resultado
         except Exception as e:
-            db.desconectar()
-            return False, f"Error: {str(e)}"
-
-    def dar_de_baja(self, matricula):
-        """Da de baja un médico en la BD"""
-        db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db"):
-            return False, "No se pudo conectar a la BD"
+            print(f"[ERROR] {e}")
+            return False
+        finally:
+            self.__db.desconectar()
+    
+    def eliminar_medico(self, matricula: int) -> bool:
+        """Marca un médico como inactivo"""
+        if not self.__db.conectar("127.0.0.1:3306/hospital_db"):
+            return False
         
         try:
-            # Verificar que el médico existe
-            query_check = "SELECT matricula, nombre, apellido FROM Medico WHERE matricula = %s"
-            medico = db.obtener_registro(query_check, (int(matricula),))
-            
-            if not medico:
-                return False, f"No se encontró médico con matrícula {matricula}"
-            
-            # Actualizar activo a 0
-            query = "UPDATE Medico SET activo = 0 WHERE matricula = %s"
-            resultado = db.ejecutar_consulta(query, (int(matricula),))
-            
-            db.desconectar()
-            
-            if resultado is not None and resultado > 0:
-                return True, f"Médico {medico['nombre']} {medico['apellido']} dado de baja"
-            else:
-                return False, "No se pudo dar de baja al médico"
-        
+            query = "UPDATE Medico SET activo = FALSE WHERE matricula = %s"
+            resultado = self.__db.ejecutar_parametrizado(query, (matricula,))
+            return resultado
         except Exception as e:
-            db.desconectar()
-            return False, f"Error: {str(e)}"
-
-    def listar(self):
-        """Lista todos los médicos de la BD"""
-        db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db"):
-            return []
-        
-        try:
-            query = "SELECT matricula, nombre, apellido, telefono, email, fecha_ingreso FROM Medico WHERE activo = 1 ORDER BY nombre, apellido"
-            medicos = db.obtener_registros(query)
-            db.desconectar()
-            
-            res = []
-            if medicos:
-                for m in medicos:
-                    res.append({
-                        "matricula": m["matricula"],
-                        "nombre": m["nombre"],
-                        "apellido": m["apellido"],
-                        "telefono": m["telefono"],
-                        "email": m["email"],
-                        "fecha_alta": str(m["fecha_ingreso"])
-                    })
-            return res
-        except Exception as e:
-            print(f"[ERROR] Error al listar médicos: {str(e)}")
-            db.desconectar()
-            return []
+            print(f"[ERROR] {e}")
+            return False
+        finally:
+            self.__db.desconectar()

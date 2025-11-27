@@ -50,28 +50,24 @@ class CrearEspecialidadDialog:
     
     def _crear_especialidad(self):
         """Valida y crea la especialidad"""
-        id_especialidad = self.entry_id.get().strip()
-        nombre = self.entry_nombre.get().strip()
-        descripcion = self.text_descripcion.get("1.0", tk.END).strip()
+        try:
+            nombre = self.entry_nombre.get().strip()
+            descripcion = self.text_descripcion.get("1.0", tk.END).strip()
+            
+            if not nombre:
+                messagebox.showwarning("Advertencia", "El nombre es obligatorio")
+                return
+            
+            if not descripcion:
+                messagebox.showwarning("Advertencia", "La descripción es obligatoria")
+                return
+            
+            # ✅ CAMBIAR: self.controller.crear → self.controller.crear_especialidad
+            if self.controller.crear_especialidad(nombre, descripcion):
+                messagebox.showinfo("Éxito", "Especialidad creada correctamente")
+                self.window.destroy()
+            else:
+                messagebox.showerror("Error", "No se pudo crear la especialidad")
         
-        # Validaciones
-        if not id_especialidad:
-            messagebox.showwarning("Advertencia", "El ID es obligatorio")
-            return
-        
-        if not nombre:
-            messagebox.showwarning("Advertencia", "El nombre es obligatorio")
-            return
-        
-        if not descripcion:
-            messagebox.showwarning("Advertencia", "La descripción es obligatoria")
-            return
-        
-        # Crear especialidad
-        ok, msg = self.controller.crear(id_especialidad, nombre, descripcion)
-        
-        if ok:
-            messagebox.showinfo("Éxito", "✓ Especialidad creada exitosamente")
-            self.window.destroy()
-        else:
-            messagebox.showerror("Error", msg)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {str(e)}")

@@ -4,15 +4,12 @@ Script principal - Ejemplo de uso del sistema de gestión médica
 
 from datetime import date
 from data.database import Database
-from medico import Medico
-from paciente import Paciente
-from consultorio import Consultorio
-from turno import Turno
-from receta import Receta
-from detalle_receta import DetalleDeReceta
-from historial_clinico import HistorialClinico
-from medicamento import Medicamento
-from atendido import Atendido
+from models.medicamento import Medicamento
+from turnos.turno import Turno
+from turnos.states.atendido import Atendido
+from recetas.receta import Receta
+from recetas.detalle_receta import DetalleDeReceta
+from historiales.historial_clinico import HistorialClinico
 
 
 def obtener_medicamento(numero_medicamento: int) -> Medicamento:
@@ -100,258 +97,257 @@ def guardar_historial_clinico(historial: HistorialClinico) -> bool:
     db = Database()  # Singleton
     
     try:
-        # Guardar historial clínico
-        query_historial = """
+        # Guardar historial clínicoco en la base de datos"""
+        query_historial = """db = Database()  # Singleton
             INSERT INTO HistorialClinico 
             (nro_historial, id_turno, id_paciente, diagnostico, observaciones, tratamiento, fecha_creacion)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)línico
         """
         params_historial = (
-            historial.get_nro_historial(),
-            historial.get_turno().get_id_turno(),
+            historial.get_nro_historial(),te, diagnostico, observaciones, tratamiento, fecha_creacion)
+            historial.get_turno().get_id_turno(), VALUES (%s, %s, %s, %s, %s, %s, %s)
             historial.get_paciente().get_nro_paciente(),
             historial.get_diagnostico(),
             historial.get_observaciones(),
             historial.get_tratamiento(),
-            historial.get_fecha_creacion()
+            historial.get_fecha_creacion()_nro_paciente(),
         )
-        
+        ),
         if not db.ejecutar_parametrizado(query_historial, params_historial):
-            return False
-        
+            return False   historial.get_fecha_creacion()
+        )
         # Si hay receta, guardarla también
-        if historial.get_receta():
-            receta = historial.get_receta()
+        if historial.get_receta():ar_parametrizado(query_historial, params_historial):
+            receta = historial.get_receta()    return False
             
-            # Guardar receta
+            # Guardar receta también
             query_receta = """
-                INSERT INTO Receta 
+                INSERT INTO Receta receta = historial.get_receta()
                 (nro_receta, nro_historial, fecha_emision, observaciones)
                 VALUES (%s, %s, %s, %s)
             """
             params_receta = (
-                receta.get_nro_receta(),
-                historial.get_nro_historial(),
+                receta.get_nro_receta(),ial, fecha_emision, observaciones)
+                historial.get_nro_historial(), VALUES (%s, %s, %s, %s)
                 receta.get_fecha_emision(),
                 receta.get_observaciones()
             )
-            
-            if not db.ejecutar_parametrizado(query_receta, params_receta):
-                return False
-            
+            (),
+            if not db.ejecutar_parametrizado(query_receta, params_receta):,
+                return False   receta.get_observaciones()
+            )
             # Guardar detalles de receta
-            for detalle in receta.get_detalles():
-                query_detalle = """
+            for detalle in receta.get_detalles():ar_parametrizado(query_receta, params_receta):
+                query_detalle = """    return False
                     INSERT INTO DetalleReceta 
                     (nro_item, nro_receta, numero_medicamento, indicacion)
-                    VALUES (%s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s)et_detalles():
                 """
                 params_detalle = (
-                    detalle.get_nro_item(),
-                    receta.get_nro_receta(),
+                    detalle.get_nro_item(),numero_medicamento, indicacion)
+                    receta.get_nro_receta(), VALUES (%s, %s, %s, %s)
                     detalle.get_medicamento().get_numero_medicamento(),
                     detalle.get_indicacion()
                 )
                 
-                if not db.ejecutar_parametrizado(query_detalle, params_detalle):
-                    return False
-        
+                if not db.ejecutar_parametrizado(query_detalle, params_detalle):).get_numero_medicamento(),
+                    return False   detalle.get_indicacion()
+        )
         return True
-    except Exception as e:
-        print(f"✗ Error al guardar historial: {e}")
+    except Exception as e:ar_parametrizado(query_detalle, params_detalle):
+        print(f"✗ Error al guardar historial: {e}")            return False
         return False
 
 
-def menu_atender_turno(turno: Turno) -> bool:
-    """Menú para atender un turno y crear historial clínico"""
+def menu_atender_turno(turno: Turno) -> bool:ror al guardar historial: {e}")
+    """Menú para atender un turno y crear historial clínico"""        return False
     print("\n" + "=" * 60)
     print("ATENDER TURNO")
     print("=" * 60)
-    print(f"\n{turno}")
+    print(f"\n{turno}")n turno y crear historial clínico"""
     
-    # Validar que el turno pueda ser atendido
+    # Validar que el turno pueda ser atendidoTURNO")
     if not turno.get_estado_turno().puede_atender():
-        print(f"✗ No se puede atender un turno en estado {turno.get_estado_turno().get_nombre()}")
+        print(f"✗ No se puede atender un turno en estado {turno.get_estado_turno().get_nombre()}")print(f"\n{turno}")
         return False
     
     # Datos del historial clínico
-    print("\n📝 Ingrese los datos del historial clínico:")
-    diagnostico = input("Diagnóstico: ").strip()
+    print("\n📝 Ingrese los datos del historial clínico:") se puede atender un turno en estado {turno.get_estado_turno().get_nombre()}")
+    diagnostico = input("Diagnóstico: ").strip()    return False
     observaciones = input("Observaciones: ").strip()
     tratamiento = input("Tratamiento: ").strip()
-    
+    clínico:")
     # Validar datos obligatorios
-    if not diagnostico or not tratamiento:
-        print("✗ Diagnóstico y Tratamiento son obligatorios")
+    if not diagnostico or not tratamiento:ip()
+        print("✗ Diagnóstico y Tratamiento son obligatorios")tratamiento = input("Tratamiento: ").strip()
         return False
     
     # Crear historial clínico
-    nro_historial = int(input("\nNro. de Historial: "))
-    historial = HistorialClinico(
+    nro_historial = int(input("\nNro. de Historial: "))gnóstico y Tratamiento son obligatorios")
+    historial = HistorialClinico(    return False
         nro_historial=nro_historial,
         turno=turno,
-        paciente=turno.get_paciente(),
+        paciente=turno.get_paciente(),Nro. de Historial: "))
         diagnostico=diagnostico,
-        observaciones=observaciones,
+        observaciones=observaciones,l=nro_historial,
         tratamiento=tratamiento
+    )nte(),
+    
+    # Preguntar si desea agregar recetaones,
+    agregar_receta = input("\n¿Desea agregar una receta? (s/n): ").lower()   tratamiento=tratamiento
     )
-    
-    # Preguntar si desea agregar receta
-    agregar_receta = input("\n¿Desea agregar una receta? (s/n): ").lower()
-    
     if agregar_receta == 's':
         receta = menu_crear_receta(historial)
-        historial.set_receta(receta)
+        historial.set_receta(receta)agregar_receta = input("\n¿Desea agregar una receta? (s/n): ").lower()
     
     # Guardar en base de datos
-    if guardar_historial_clinico(historial):
-        print("\n✓ Historial clínico guardado exitosamente")
+    if guardar_historial_clinico(historial):istorial)
+        print("\n✓ Historial clínico guardado exitosamente")    historial.set_receta(receta)
         
         # Cambiar estado del turno a Atendido
         turno.set_estado_turno(Atendido())
-        print("✓ Turno marcado como Atendido")
+        print("✓ Turno marcado como Atendido")print("\n✓ Historial clínico guardado exitosamente")
         
-        # Actualizar estado en BD
+        # Actualizar estado en BDido
         db = Database()  # Singleton
-        db.ejecutar_parametrizado(
+        db.ejecutar_parametrizado(print("✓ Turno marcado como Atendido")
             "UPDATE Turno SET estado = %s WHERE id_turno = %s",
             ("Atendido", turno.get_id_turno())
-        )
+        )on
         
-        return True
-    else:
-        print("\n✗ Error al guardar el historial clínico")
+        return TrueE id_turno = %s",
+    else:   ("Atendido", turno.get_id_turno())
+        print("\n✗ Error al guardar el historial clínico"))
         return False
+eturn True
 
-
-def obtener_turno(turno_id: int) -> Turno:
-    """Obtiene un turno de la base de datos"""
+def obtener_turno(turno_id: int) -> Turno:rror al guardar el historial clínico")
+    """Obtiene un turno de la base de datos"""        return False
     db = Database()  # Singleton
     
     try:
-        resultado = db.obtener_registros_parametrizados(
-            """SELECT t.* FROM Turno t 
+        resultado = db.obtener_registros_parametrizados(se de datos"""
+            """SELECT t.* FROM Turno t db = Database()  # Singleton
                WHERE t.id_turno = %s AND t.estado = 'Programado'""",
             (turno_id,)
-        )
+        )s_parametrizados(
         
-        if resultado:
-            t = resultado[0]
-            # Aquí deberías mapear a tu objeto Turno completo
-            print("✓ Turno encontrado")
+        if resultado:id_turno = %s AND t.estado = 'Programado'""",
+            t = resultado[0]   (turno_id,)
+            print("✓ Turno encontrado"))
             return t
         else:
             print(f"✗ Turno {turno_id} no encontrado o no está programado")
-            return None
-    except Exception as e:
-        print(f"✗ Error al obtener turno: {e}")
+            return None objeto Turno completo
+    except Exception as e: Turno encontrado")
+        print(f"✗ Error al obtener turno: {e}")eturn t
         return None
-
+urno {turno_id} no encontrado o no está programado")
 
 def mostrar_turnos() -> None:
-    """Muestra los turnos programados"""
-    db = Database()  # Singleton
+    """Muestra los turnos programados"""rror al obtener turno: {e}")
+    db = Database()  # Singleton        return None
     
     print("\n⏰ TURNOS PROGRAMADOS:")
     print("=" * 60)
-    
-    try:
+    mados"""
+    try:db = Database()  # Singleton
         turnos = db.obtener_registros("""
-            SELECT t.id_turno, m.nombre as medico, p.nombre as paciente, 
-                   t.fecha, t.hora, t.estado
+            SELECT t.id_turno, m.nombre as medico, p.nombre as paciente, OS PROGRAMADOS:")
+                   t.fecha, t.hora, t.estadoprint("=" * 60)
             FROM Turno t
             JOIN Medico m ON t.matricula = m.matricula
             JOIN Paciente p ON t.id_paciente = p.id_paciente
-            WHERE t.estado = 'Programado'
-            ORDER BY t.fecha, t.hora
+            WHERE t.estado = 'Programado'edico, p.nombre as paciente, 
+            ORDER BY t.fecha, t.horaha, t.hora, t.estado
         """)
         
-        if not turnos:
-            print("   No hay turnos programados")
-            return
-        
+        if not turnos:nte = p.id_paciente
+            print("   No hay turnos programados")mado'
+            returnORDER BY t.fecha, t.hora
+        """)
         for turno in turnos:
             print(f"   #{turno['id_turno']:3} | {turno['paciente']:20} | "
-                  f"Dr. {turno['medico']:20} | {turno['fecha']} {turno['hora']}")
-    except Exception as e:
+                  f"Dr. {turno['medico']:20} | {turno['fecha']} {turno['hora']}")"   No hay turnos programados")
+    except Exception as e:    return
         print(f"✗ Error: {e}")
 
 
-def mostrar_especialidades() -> None:
+def mostrar_especialidades() -> None:urno['medico']:20} | {turno['fecha']} {turno['hora']}")
     """Muestra las especialidades disponibles"""
-    db = Database()  # Singleton
+    db = Database()  # Singleton        print(f"✗ Error: {e}")
     
     print("\n📚 ESPECIALIDADES:")
     print("=" * 60)
-    
-    try:
+    s disponibles"""
+    try:db = Database()  # Singleton
         especialidades = db.obtener_registros("SELECT * FROM Especialidad")
-        
-        if not especialidades:
+        ECIALIDADES:")
+        if not especialidades:print("=" * 60)
             print("   No hay especialidades registradas")
             return
-        
+        especialidades = db.obtener_registros("SELECT * FROM Especialidad")
         for esp in especialidades:
             print(f"   {esp['nro_especialidad']} - {esp['nombre']}: {esp['descripcion']}")
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    except Exception as e:"   No hay especialidades registradas")
+        print(f"✗ Error: {e}")    return
 
 
-def menu_principal(db: Database) -> None:
+def menu_principal(db: Database) -> None:p['nro_especialidad']} - {esp['nombre']}: {esp['descripcion']}")
     """Menú principal del sistema"""
-    while True:
+    while True:        print(f"✗ Error: {e}")
         print("\n" + "=" * 60)
         print("SISTEMA DE GESTIÓN MÉDICA")
-        print("=" * 60)
-        print("1. Ver turnos programados")
+        print("=" * 60)None:
+        print("1. Ver turnos programados")ncipal del sistema"""
         print("2. Atender turno")
         print("3. Ver especialidades")
-        print("4. Salir")
+        print("4. Salir")DE GESTIÓN MÉDICA")
         
-        opcion = input("\nSeleccione una opción: ").strip()
+        opcion = input("\nSeleccione una opción: ").strip()ramados")
         
-        if opcion == "1":
-            mostrar_turnos()
+        if opcion == "1":ecialidades")
+            mostrar_turnos()print("4. Salir")
         
-        elif opcion == "2":
+        elif opcion == "2":opcion = input("\nSeleccione una opción: ").strip()
             mostrar_turnos()
             try:
-                turno_id = int(input("\nIngrese ID del turno a atender: "))
+                turno_id = int(input("\nIngrese ID del turno a atender: "))    mostrar_turnos()
                 turno = obtener_turno(turno_id)
                 
-                if turno:
+                if turno:rar_turnos()
                     menu_atender_turno(turno)
-                else:
-                    print("✗ Turno no encontrado")
+                else: ID del turno a atender: "))
+                    print("✗ Turno no encontrado")turno = obtener_turno(turno_id)
             except ValueError:
                 print("✗ ID inválido")
-        
+        enu_atender_turno(turno)
         elif opcion == "3":
-            mostrar_especialidades()
+            mostrar_especialidades()urno no encontrado")
         
-        elif opcion == "4":
+        elif opcion == "4":        print("✗ ID inválido")
             print("\n👋 ¡Hasta luego!")
             break
-        
+            mostrar_especialidades()
         else:
             print("✗ Opción inválida")
-
-
+("\n👋 ¡Hasta luego!")
+    break
 def main():
     print("\n" + "=" * 60)
-    print("SISTEMA DE GESTIÓN MÉDICA")
+    print("SISTEMA DE GESTIÓN MÉDICA")            print("✗ Opción inválida")
     print("=" * 60)
     
     # Obtener instancia Singleton de Database
     db = Database()
-    
-    if db.conectar("127.0.0.1:3306/hospital_db"):
+    DE GESTIÓN MÉDICA")
+    if db.conectar("127.0.0.1:3306/hospital_db"):print("=" * 60)
         print(f"✓ {db}")
-        menu_principal(db)
-        db.desconectar()
+        menu_principal(db)ncia Singleton de Database
+        db.desconectar()db = Database()
     else:
-        print("✗ No se pudo conectar a la base de datos")
+        print("✗ No se pudo conectar a la base de datos")0.0.1:3306/hospital_db"):
 
-
-if __name__ == "__main__":
-    main()
+b)
+if __name__ == "__main__":b.desconectar()
+    main()    main()

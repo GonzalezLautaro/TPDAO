@@ -69,7 +69,16 @@ class Turno:
     
     def get_cambios_estado(self) -> List[CambioEstado]:
         return self.__cambios_estado
+
+    def agregar_notificacion(self, notificacion: 'Notificacion') -> None:
+        """Agrega una notificación al turno"""
+        if notificacion not in self.__notificaciones:
+            self.__notificaciones.append(notificacion)
     
+    def get_notificaciones(self) -> List['Notificacion']:
+        """Retorna las notificaciones del turno"""
+        return self.__notificaciones.copy()
+
     # Setters
     def set_observaciones(self, observaciones: str) -> None:
         if not observaciones or not isinstance(observaciones, str):

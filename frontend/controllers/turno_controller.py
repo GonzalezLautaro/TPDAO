@@ -68,7 +68,7 @@ class TurnoController:
             return []
         
         try:
-            query = "SELECT id_paciente, nombre, apellido FROM Paciente ORDER BY nombre, apellido"
+            query = "SELECT id_paciente, nombre, apellido FROM Paciente WHERE activo = 1 ORDER BY nombre, apellido"
             pacientes = db.obtener_registros(query)
             
             db.desconectar()
@@ -77,7 +77,7 @@ class TurnoController:
                 print(f"[DEBUG] ✓ Pacientes cargados: {len(pacientes)}")
                 return pacientes
             else:
-                print("[DEBUG] ✗ No se encontraron pacientes en la BD")
+                print("[DEBUG] ✗ No se encontraron pacientes activos en la BD")
                 return []
         
         except Exception as e:

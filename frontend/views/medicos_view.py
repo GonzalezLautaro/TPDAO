@@ -1,9 +1,16 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import sys, os
+
+# Agregar TPDAO al path
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if BASE not in sys.path:
+    sys.path.insert(0, BASE)
 
 from ..controllers.medicos_controller import MedicosController
 from ..dialogs.crear_medico_dialog import CrearMedicoDialog
 from ..dialogs.modificar_medico_dialog import ModificarMedicoDialog
+from data.database import Database
 
 
 class MedicosView(ttk.Frame):
@@ -22,33 +29,58 @@ class MedicosView(ttk.Frame):
         search_frame = ttk.LabelFrame(self, text="Buscar Médico", padding=10)
         search_frame.pack(fill="x", pady=(0, 10))
         
-        ttk.Label(search_frame, text="Buscar por nombre o matrícula:").pack(side="left")
+        # Fila 1: Búsqueda por texto
+        ttk.Label(search_frame, text="Buscar por nombre o matrícula:").grid(row=0, column=0, sticky="w", pady=(0, 5))
         
         self.entry_busqueda = ttk.Entry(search_frame, width=30)
-        self.entry_busqueda.pack(side="left", padx=(10, 0))
+        self.entry_busqueda.grid(row=0, column=1, sticky="ew", padx=(10, 5), pady=(0, 5))
         self.entry_busqueda.bind("<KeyRelease>", lambda e: self._filtrar_medicos())
         
-        ttk.Button(search_frame, text="✕ Limpiar", command=self._limpiar_busqueda).pack(side="left", padx=10)
+        ttk.Button(search_frame, text="✕ Limpiar", command=self._limpiar_busqueda).grid(row=0, column=2, padx=(0, 0), pady=(0, 5))
+        
+        # Fila 2: Filtro por especialidad
+        ttk.Label(search_frame, text="Filtrar por especialidad:").grid(row=1, column=0, sticky="w", pady=(5, 0))
+        
+        self.especialidad_var = tk.StringVar(value="Todas")
+        
+        self.combo_especialidad = ttk.Combobox(
+            search_frame,
+            textvariable=self.especialidad_var,
+            values=["Todas"],
+            state="readonly",
+            width=27
+        )
+        self.combo_especialidad.grid(row=1, column=1, sticky="ew", padx=(10, 5), pady=(5, 0))
+        self.combo_especialidad.bind("<<ComboboxSelected>>", lambda e: self._filtrar_medicos())
+        
+        ttk.Button(search_frame, text="↻ Todas", command=self._resetear_especialidad).grid(row=1, column=2, padx=(0, 0), pady=(5, 0))
+        
+        search_frame.columnconfigure(1, weight=1)
         
         # Tabla de médicos
         tabla_frame = ttk.LabelFrame(self, text="Médicos Registrados")
         tabla_frame.pack(fill="both", expand=True)
         
+        # Label contador
+        self.label_contador = ttk.Label(tabla_frame, text="", font=("Arial", 9))
+        self.label_contador.pack(anchor="w", padx=10, pady=(5, 0))
+        
         # Crear Treeview
         self.tree = ttk.Treeview(
             tabla_frame,
-            columns=("matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "acciones"),
+            columns=("matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "especialidades", "acciones"),
             show="headings",
-            height=14
+            height=12
         )
         
         headers = [
             ("matricula", "Matrícula", 70),
-            ("nombre", "Nombre", 120),
-            ("apellido", "Apellido", 120),
-            ("telefono", "Teléfono", 100),
-            ("email", "Email", 160),
-            ("fecha_alta", "Fecha Alta", 100),
+            ("nombre", "Nombre", 100),
+            ("apellido", "Apellido", 100),
+            ("telefono", "Teléfono", 90),
+            ("email", "Email", 140),
+            ("fecha_alta", "Fecha Alta", 90),
+            ("especialidades", "Especialidades", 180),
             ("acciones", "Acciones", 180)
         ]
         
@@ -59,8 +91,8 @@ class MedicosView(ttk.Frame):
         scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
         
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=(5, 10))
+        scrollbar.pack(side="right", fill="y", pady=(5, 10))
         
         # Bind para detectar clicks en la columna de acciones
         self.tree.bind("<Button-1>", self._on_tree_click)
@@ -68,8 +100,29 @@ class MedicosView(ttk.Frame):
         # Almacenar todos los médicos
         self.todos_medicos = []
         self.medicos_filtrados = []
+        self.especialidades_disponibles = []
         
+        self._cargar_especialidades()
         self._refresh()
+    
+    def _cargar_especialidades(self):
+        """Carga las especialidades desde la BD"""
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return
+        
+        try:
+            query = "SELECT id_especialidad, nombre FROM Especialidad ORDER BY nombre"
+            especialidades = db.obtener_registros(query)
+            db.desconectar()
+            
+            if especialidades:
+                self.especialidades_disponibles = especialidades
+                nombres = ["Todas"] + [esp['nombre'] for esp in especialidades]
+                self.combo_especialidad['values'] = nombres
+        except Exception as e:
+            print(f"[ERROR] Error al cargar especialidades: {str(e)}")
+            db.desconectar()
     
     def _crear_medico(self):
         """Abre el diálogo para crear un nuevo médico"""
@@ -80,20 +133,38 @@ class MedicosView(ttk.Frame):
     def _limpiar_busqueda(self):
         """Limpia el campo de búsqueda"""
         self.entry_busqueda.delete(0, tk.END)
-        self._refresh()
+        self._filtrar_medicos()
+    
+    def _resetear_especialidad(self):
+        """Resetea el filtro de especialidad a 'Todas'"""
+        self.especialidad_var.set("Todas")
+        self._filtrar_medicos()
     
     def _filtrar_medicos(self):
-        """Filtra los médicos según el texto de búsqueda"""
+        """Filtra los médicos según el texto de búsqueda y especialidad"""
         texto_busqueda = self.entry_busqueda.get().lower().strip()
+        especialidad_seleccionada = self.especialidad_var.get()
         
-        if not texto_busqueda:
-            self.medicos_filtrados = self.todos_medicos
-        else:
-            self.medicos_filtrados = [
-                m for m in self.todos_medicos
-                if (texto_busqueda in f"{m['nombre']} {m['apellido']}".lower() or
-                    texto_busqueda in str(m['matricula']))
-            ]
+        self.medicos_filtrados = []
+        
+        for m in self.todos_medicos:
+            # Filtro por texto (nombre, apellido o matrícula)
+            nombre_completo = f"{m['nombre']} {m['apellido']}".lower()
+            matricula_str = str(m['matricula'])
+            
+            coincide_texto = True
+            if texto_busqueda:
+                coincide_texto = (texto_busqueda in nombre_completo or texto_busqueda in matricula_str)
+            
+            # Filtro por especialidad
+            coincide_especialidad = True
+            if especialidad_seleccionada != "Todas":
+                especialidades_medico = m.get('especialidades', '').split(', ')
+                coincide_especialidad = especialidad_seleccionada in especialidades_medico
+            
+            # Agregar si cumple ambos filtros
+            if coincide_texto and coincide_especialidad:
+                self.medicos_filtrados.append(m)
         
         self._repoblar_tabla()
     
@@ -103,6 +174,8 @@ class MedicosView(ttk.Frame):
             self.tree.delete(item)
         
         for m in self.medicos_filtrados:
+            especialidades_str = m.get('especialidades', 'Sin especialidad')
+            
             self.tree.insert("", "end", values=(
                 m["matricula"],
                 m["nombre"],
@@ -110,8 +183,18 @@ class MedicosView(ttk.Frame):
                 m["telefono"],
                 m["email"],
                 m["fecha_alta"],
+                especialidades_str,
                 "✏️ Modificar | 🗑️ Dar de Baja"
             ))
+        
+        # Actualizar contador
+        total = len(self.todos_medicos)
+        mostrados = len(self.medicos_filtrados)
+        
+        if mostrados == total:
+            self.label_contador.config(text=f"Mostrando {mostrados} médico(s)")
+        else:
+            self.label_contador.config(text=f"Mostrando {mostrados} de {total} médico(s)")
     
     def _on_tree_click(self, event):
         """Maneja clicks en la tabla"""
@@ -188,8 +271,52 @@ class MedicosView(ttk.Frame):
                 messagebox.showerror("Error", msg)
     
     def _refresh(self):
-        """Recarga la lista de médicos"""
-        self.todos_medicos = self.ctrl.listar()
-        self.medicos_filtrados = self.todos_medicos
-        self.entry_busqueda.delete(0, tk.END)
-        self._repoblar_tabla()
+        """Recarga la lista de médicos con sus especialidades"""
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            self.todos_medicos = []
+            self.medicos_filtrados = []
+            self._repoblar_tabla()
+            return
+        
+        try:
+            query = """
+            SELECT m.matricula, m.nombre, m.apellido, m.telefono, m.email, m.fecha_ingreso,
+                   GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ') as especialidades
+            FROM Medico m
+            LEFT JOIN Medico_especialidad me ON m.matricula = me.matricula
+            LEFT JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+            WHERE m.activo = 1
+            GROUP BY m.matricula, m.nombre, m.apellido, m.telefono, m.email, m.fecha_ingreso
+            ORDER BY m.nombre, m.apellido
+            """
+            
+            medicos = db.obtener_registros(query)
+            db.desconectar()
+            
+            if medicos:
+                self.todos_medicos = []
+                for m in medicos:
+                    self.todos_medicos.append({
+                        "matricula": m["matricula"],
+                        "nombre": m["nombre"],
+                        "apellido": m["apellido"],
+                        "telefono": m["telefono"],
+                        "email": m["email"],
+                        "fecha_alta": str(m["fecha_ingreso"]),
+                        "especialidades": m["especialidades"] or "Sin especialidad"
+                    })
+            else:
+                self.todos_medicos = []
+            
+            self.medicos_filtrados = self.todos_medicos
+            self.entry_busqueda.delete(0, tk.END)
+            self.especialidad_var.set("Todas")
+            self._repoblar_tabla()
+            
+        except Exception as e:
+            print(f"[ERROR] Error al listar médicos: {str(e)}")
+            db.desconectar()
+            self.todos_medicos = []
+            self.medicos_filtrados = []
+            self._repoblar_tabla()

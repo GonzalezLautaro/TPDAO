@@ -16,95 +16,106 @@ class CrearMedicoDialog:
         self.controller = controller
         self.window = tk.Toplevel(parent)
         self.window.title("Crear Nuevo Médico")
-        self.window.geometry("600x550")
+        self.window.geometry("620x620")
         self.window.resizable(False, False)
         
         # Container principal con padding
-        container = ttk.Frame(self.window, padding=15)
+        container = ttk.Frame(self.window, padding=20)
         container.pack(fill="both", expand=True)
         
         # Título
         titulo = ttk.Label(container, text="Registrar Nuevo Médico", font=("Arial", 14, "bold"))
-        titulo.pack(pady=(0, 20))
+        titulo.pack(pady=(0, 15))
         
         # Form frame
         form_frame = ttk.Frame(container)
-        form_frame.pack(fill="both", expand=True, pady=(0, 20))
+        form_frame.pack(fill="both", expand=True, pady=(0, 15))
         
         # Matrícula
         ttk.Label(form_frame, text="Matrícula:").grid(row=0, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_matricula = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_matricula = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_matricula.grid(row=0, column=1, sticky="ew", pady=8)
         
         # Nombre
         ttk.Label(form_frame, text="Nombre:").grid(row=1, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_nombre = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_nombre = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_nombre.grid(row=1, column=1, sticky="ew", pady=8)
         
         # Apellido
         ttk.Label(form_frame, text="Apellido:").grid(row=2, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_apellido = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_apellido = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_apellido.grid(row=2, column=1, sticky="ew", pady=8)
         
         # Teléfono
         ttk.Label(form_frame, text="Teléfono:").grid(row=3, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_telefono = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_telefono = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_telefono.grid(row=3, column=1, sticky="ew", pady=8)
         
         # Email
         ttk.Label(form_frame, text="Email:").grid(row=4, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_email = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_email = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_email.grid(row=4, column=1, sticky="ew", pady=8)
         
         # Fecha de Alta
         ttk.Label(form_frame, text="Fecha Alta (YYYY-MM-DD):").grid(row=5, column=0, sticky="w", pady=8, padx=(0, 15))
-        self.entry_fecha_alta = ttk.Entry(form_frame, width=30, font=("Arial", 9))
+        self.entry_fecha_alta = ttk.Entry(form_frame, width=35, font=("Arial", 9))
         self.entry_fecha_alta.insert(0, str(date.today()))
         self.entry_fecha_alta.grid(row=5, column=1, sticky="ew", pady=8)
         
-        # Especialidades - Cambiar a Listbox con scroll
+        # Especialidades con checkboxes y scroll
         ttk.Label(form_frame, text="Especialidades:").grid(row=6, column=0, sticky="nw", pady=(8, 0), padx=(0, 15))
         
-        # Frame para especialidades con Listbox
-        esp_frame = ttk.LabelFrame(form_frame, text="Selecciona una o más (Ctrl+Click)", padding=10)
-        esp_frame.grid(row=6, column=1, sticky="ew", pady=8)
+        # Frame para especialidades con Canvas y Scrollbar
+        esp_outer_frame = ttk.LabelFrame(form_frame, text="Selecciona una o más", padding=5)
+        esp_outer_frame.grid(row=6, column=1, sticky="ew", pady=8)
         
-        # Scrollbar para el Listbox
-        scrollbar_esp = ttk.Scrollbar(esp_frame, orient="vertical")
-        scrollbar_esp.pack(side="right", fill="y")
+        # Canvas para scroll
+        canvas = tk.Canvas(esp_outer_frame, height=150, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(esp_outer_frame, orient="vertical", command=canvas.yview)
         
-        # Listbox con selección múltiple
-        self.listbox_especialidades = tk.Listbox(
-            esp_frame, 
-            selectmode="multiple",
-            yscrollcommand=scrollbar_esp.set,
-            height=6,
-            font=("Arial", 9)
+        # Frame scrollable
+        self.esp_frame_scroll = ttk.Frame(canvas)
+        self.esp_frame_scroll.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        self.listbox_especialidades.pack(side="left", fill="both", expand=True)
-        scrollbar_esp.config(command=self.listbox_especialidades.yview)
+        
+        canvas.create_window((0, 0), window=self.esp_frame_scroll, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         # Cargar especialidades
         self.especialidades = self._cargar_especialidades()
+        self.var_especialidades = {}
         
         if self.especialidades:
             for esp in self.especialidades:
-                texto = f"{esp['nombre']} - {esp['descripcion']}"
-                self.listbox_especialidades.insert(tk.END, texto)
+                var = tk.BooleanVar()
+                self.var_especialidades[esp['id']] = var
+                
+                checkbox = ttk.Checkbutton(
+                    self.esp_frame_scroll,
+                    text=f"{esp['nombre']} - {esp['descripcion']}",
+                    variable=var
+                )
+                checkbox.pack(anchor="w", pady=2, padx=5)
         else:
-            self.listbox_especialidades.insert(tk.END, "No hay especialidades disponibles")
-            self.listbox_especialidades.config(state="disabled")
+            ttk.Label(self.esp_frame_scroll, text="No hay especialidades disponibles", foreground="gray").pack(anchor="w", padx=5)
         
         form_frame.columnconfigure(1, weight=1)
         
-        # Frame de botones
+        # Frame de botones (separado del container principal)
         btn_frame = ttk.Frame(container)
-        btn_frame.pack(fill="x", side="bottom", expand=False, pady=(10, 0))
+        btn_frame.pack(fill="x", side="bottom", pady=(15, 0))
         
-        btn_frame.columnconfigure(0, weight=1)
+        # Espaciador a la izquierda
+        ttk.Frame(btn_frame).pack(side="left", expand=True)
         
-        ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy).grid(row=0, column=1, padx=5, sticky="e")
-        ttk.Button(btn_frame, text="✓ Crear", command=self._crear_medico).grid(row=0, column=2, padx=5, sticky="e")
+        # Botones a la derecha
+        ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy, width=12).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="✓ Crear", command=self._crear_medico, width=12).pack(side="left", padx=5)
     
     def _cargar_especialidades(self):
         """Carga las especialidades desde la BD"""
@@ -156,13 +167,10 @@ class CrearMedicoDialog:
             messagebox.showwarning("Advertencia", "La fecha de alta es obligatoria")
             return
         
-        # Obtener especialidades seleccionadas desde el Listbox
-        especialidades_ids = []
-        seleccionados = self.listbox_especialidades.curselection()
-        
-        for idx in seleccionados:
-            if idx < len(self.especialidades):
-                especialidades_ids.append(self.especialidades[idx]['id'])
+        # Obtener especialidades seleccionadas desde checkboxes
+        especialidades_ids = [
+            esp_id for esp_id, var in self.var_especialidades.items() if var.get()
+        ]
         
         # Crear médico
         ok, msg = self.controller.crear(

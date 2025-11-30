@@ -8,24 +8,24 @@ class Database:
     """Clase para manejar la conexión a la base de datos MySQL"""
     
     _instancia: Optional['Database'] = None
-    _inicializado = False
-    
-    def __new__(cls):
-        """Patrón Singleton - garantiza una única instancia"""
-        if cls._instancia is None:
-            cls._instancia = super().__new__(cls)
-        return cls._instancia
     
     def __init__(self):
-        """Inicializa la conexión a la BD solo una vez"""
-        if not Database._inicializado:
+        """Inicializa la conexión a la BD"""
+        if not hasattr(self, '_initialized'):
             self.connection = None
             self.host = "127.0.0.1"
             self.port = 3306
             self.user = "root"
             self.password = "123456"  # ← CAMBIAR AQUÍ || si no tienes contraseña, dejar vacío: self.password = ""
             self.database = "hospital_db"
-            Database._inicializado = True
+            self._initialized = True
+    
+    @classmethod
+    def obtener_instancia(cls):
+        """Obtiene la única instancia de Database"""
+        if cls._instancia is None:
+            cls._instancia = cls()
+        return cls._instancia
     
     def conectar(self, connection_string=None):
         """

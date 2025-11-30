@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from ..controllers.turno_controller import TurnoController
 from ..dialogs.programar_turno_dialog import ProgramarTurnoDialog
+from ..dialogs.atender_turno_dialog import AtenderTurnoDialog
 
 
 class TurnosView(ttk.Frame):
@@ -9,27 +10,31 @@ class TurnosView(ttk.Frame):
         super().__init__(parent, padding=12)
         self.ctrl = TurnoController()
         
-        # Frame superior con botones
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", pady=(0, 10))
         
         ttk.Button(btn_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
         ttk.Button(btn_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
         
-        # Tabla de turnos programados
         tabla_frame = ttk.LabelFrame(self, text="Turnos Programados")
         tabla_frame.pack(fill="both", expand=True)
         
-        self.tree = ttk.Treeview(tabla_frame, columns=("id", "paciente", "medico", "consultorio", "fecha", "horario", "estado"), show="headings", height=15)
+        self.tree = ttk.Treeview(
+            tabla_frame,
+            columns=("id", "paciente", "medico", "consultorio", "fecha", "horario", "estado", "acciones"),
+            show="headings",
+            height=14
+        )
         
         headers = [
             ("id", "ID", 50),
             ("paciente", "Paciente", 150),
             ("medico", "Médico", 150),
-            ("consultorio", "Consult.", 60),
+            ("consultorio", "Consult.", 70),
             ("fecha", "Fecha", 100),
-            ("horario", "Horario", 110),
-            ("estado", "Estado", 80)
+            ("horario", "Horario", 120),
+            ("estado", "Estado", 100),
+            ("acciones", "Acciones", 200)
         ]
         
         for col, text, width in headers:
@@ -42,13 +47,8 @@ class TurnosView(ttk.Frame):
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Frame inferior con acciones
-        acc_frame = ttk.Frame(self)
-        acc_frame.pack(fill="x", pady=(10, 0))
-        
-        ttk.Button(acc_frame, text="📋 Atender", command=lambda: self._cambiar_estado("Atendido")).pack(side="left")
-        ttk.Button(acc_frame, text="❌ Cancelar", command=lambda: self._cambiar_estado("Cancelado")).pack(side="left", padx=5)
-        ttk.Button(acc_frame, text="⚠️ No Asistió", command=lambda: self._cambiar_estado("Inasistencia")).pack(side="left", padx=5)
+        # Bind para clicks
+        self.tree.bind("<Button-1>", self._on_tree_click)
         
         self._refresh()
     
@@ -58,36 +58,139 @@ class TurnosView(ttk.Frame):
         self.winfo_toplevel().wait_window(dialog.window)
         self._refresh()
     
-    def _cambiar_estado(self, nuevo_estado):
-        """Cambia el estado de un turno seleccionado"""
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showwarning("Advertencia", "Selecciona un turno")
+    def _on_tree_click(self, event):
+        """Maneja clicks en la tabla"""
+        try:
+            item = self.tree.identify("item", event.x, event.y)
+            if not item:
+                return
+            
+            # Detectar columna clickeada
+            col_num = 0
+            col_x = 0
+            
+            for i, col in enumerate(["id", "paciente", "medico", "consultorio", "fecha", "horario", "estado", "acciones"]):
+                col_width = self.tree.column(col, "width")
+                if event.x < col_x + col_width:
+                    col_num = i
+                    break
+                col_x += col_width
+            
+            # Si es la columna de acciones (columna 7)
+            if col_num == 7:
+                valores = self.tree.item(item)["values"]
+                id_turno = valores[0]
+                paciente = valores[1]
+                medico = valores[2]
+                consultorio = valores[3]
+                fecha = valores[4]
+                horario = valores[5]
+                estado = valores[6]
+                
+                # Determinar ancho de la columna de acciones
+                acciones_col_width = self.tree.column("acciones", "width")
+                acciones_col_x = col_x
+                
+                # Dividir en tres partes: Atender | Cancelar | No Asistió
+                tercio = acciones_col_width / 3
+                
+                turno_data = {
+                    "id": id_turno,
+                    "paciente": paciente,
+                    "medico": medico,
+                    "consultorio": consultorio,
+                    "fecha": fecha,
+                    "horario": horario,
+                    "estado": estado
+                }
+                
+                if event.x < acciones_col_x + tercio:
+                    # Atender
+                    if estado == "Programado":
+                        self._atender_turno(turno_data)
+                    else:
+                        messagebox.showinfo("Información", f"Este turno ya está en estado: {estado}")
+                
+                elif event.x < acciones_col_x + (tercio * 2):
+                    # Cancelar
+                    self._cancelar_turno(id_turno, paciente, estado)
+                
+                else:
+                    # No Asistió
+                    self._marcar_inasistencia(id_turno, paciente, estado)
+        
+        except Exception as e:
+            print(f"[ERROR] Error en click: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _atender_turno(self, turno_data):
+        """Abre el diálogo para atender el turno"""
+        dialog = AtenderTurnoDialog(self.winfo_toplevel(), turno_data)
+        self.winfo_toplevel().wait_window(dialog.window)
+        self._refresh()
+    
+    def _cancelar_turno(self, id_turno, paciente, estado):
+        """Cancela un turno"""
+        if estado == "Atendido":
+            messagebox.showwarning("Advertencia", "No se puede cancelar un turno ya atendido")
             return
         
-        id_turno = self.tree.item(sel[0])["values"][0]
+        respuesta = messagebox.askyesno(
+            "Confirmar",
+            f"¿Deseas cancelar el turno de {paciente}?"
+        )
         
-        ok, msg = self.ctrl.cambiar_estado_turno(id_turno, nuevo_estado)
-        if ok:
-            messagebox.showinfo("Éxito", msg)
-            self._refresh()
-        else:
-            messagebox.showerror("Error", msg)
+        if respuesta:
+            ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Cancelado")
+            if ok:
+                messagebox.showinfo("Éxito", "✓ Turno cancelado correctamente")
+                self._refresh()
+            else:
+                messagebox.showerror("Error", msg)
+    
+    def _marcar_inasistencia(self, id_turno, paciente, estado):
+        """Marca un turno como inasistencia"""
+        if estado == "Atendido":
+            messagebox.showwarning("Advertencia", "No se puede marcar como inasistencia un turno ya atendido")
+            return
+        
+        respuesta = messagebox.askyesno(
+            "Confirmar",
+            f"¿Marcar como 'No Asistió' el turno de {paciente}?"
+        )
+        
+        if respuesta:
+            ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Inasistencia")
+            if ok:
+                messagebox.showinfo("Éxito", "✓ Turno marcado como inasistencia")
+                self._refresh()
+            else:
+                messagebox.showerror("Error", msg)
     
     def _refresh(self):
         """Recarga la lista de turnos programados"""
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        turnos = self.ctrl.listar_turnos_programados()
+        turnos = self.ctrl.obtener_turnos_programados()
+        
         for t in turnos:
-            horario = f"{t['hora_inicio']} - {t['hora_fin']}"
+            # Determinar texto de acciones según estado
+            if t['estado'] == 'Programado':
+                acciones = "✓ Atender | ✕ Cancelar | ⚠ No Asistió"
+            elif t['estado'] == 'Atendido':
+                acciones = "— | ✕ Cancelar | ⚠ No Asistió"
+            else:
+                acciones = "— | — | —"
+            
             self.tree.insert("", "end", values=(
                 t["id_turno"],
                 t["paciente"],
                 t["medico"],
                 t["consultorio"],
                 t["fecha"],
-                horario,
-                t["estado"]
+                f"{t['hora_inicio']} - {t['hora_fin']}",
+                t["estado"],
+                acciones
             ))

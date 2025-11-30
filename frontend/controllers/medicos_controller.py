@@ -13,8 +13,8 @@ class MedicosController:
     def __init__(self):
         self.gestor = GestorMedico()
 
-    def crear(self, matricula, nombre, apellido, tel, email, fecha_alta):
-        """Crea un nuevo médico"""
+    def crear(self, matricula, nombre, apellido, tel, email, fecha_alta, especialidades_ids=None):
+        """Crea un nuevo médico y asigna especialidades"""
         if not matricula or not nombre or not apellido or not email:
             return False, "Faltan datos obligatorios"
         
@@ -28,8 +28,46 @@ class MedicosController:
         except Exception:
             return False, "Fecha inválida (YYYY-MM-DD)"
         
+        # Crear médico en memoria
         ok = self.gestor.alta_medico(matricula_int, nombre, apellido, tel, email, fecha)
-        return (True, "Médico creado") if ok else (False, "No se pudo crear médico")
+        if not ok:
+            return False, "No se pudo crear médico"
+        
+        # Guardar médico en BD
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return False, "No se pudo conectar a la base de datos"
+        
+        try:
+            # Insertar médico
+            query = """
+            INSERT INTO Medico (matricula, nombre, apellido, telefono, email, fecha_ingreso, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            """
+            resultado = db.ejecutar_consulta(query, (matricula_int, nombre, apellido, tel, email, fecha))
+            
+            if resultado is None or resultado == 0:
+                db.desconectar()
+                return False, "Error al guardar médico en BD"
+            
+            # Guardar especialidades si existen
+            if especialidades_ids:
+                for esp_id in especialidades_ids:
+                    try:
+                        query_esp = """
+                        INSERT INTO Medico_especialidad (matricula, id_especialidad)
+                        VALUES (%s, %s)
+                        """
+                        db.ejecutar_consulta(query_esp, (matricula_int, int(esp_id)))
+                    except Exception as e:
+                        print(f"[WARNING] Error al asignar especialidad {esp_id}: {str(e)}")
+            
+            db.desconectar()
+            return True, "Médico creado exitosamente"
+        
+        except Exception as e:
+            db.desconectar()
+            return False, f"Error: {str(e)}"
 
     def modificar(self, matricula, nombre, apellido, telefono, email, fecha_alta):
         """Modifica un médico en la BD"""

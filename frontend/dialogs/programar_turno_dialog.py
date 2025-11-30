@@ -43,14 +43,40 @@ class ProgramarTurnoDialog:
         for widget in self.frame_paso.winfo_children():
             widget.destroy()
     
-    def _obtener_medicos_directo(self):
-        """Obtiene médicos directamente de la BD"""
+    def _obtener_especialidades_directo(self):
+        """Obtiene especialidades directamente de la BD"""
         db = Database()
         if not db.conectar("127.0.0.1:3306/hospital_db"):
             return []
         
         try:
-            query = "SELECT matricula, nombre, apellido FROM Medico WHERE activo = 1 ORDER BY nombre, apellido"
+            query = "SELECT id_especialidad, nombre FROM Especialidad ORDER BY nombre"
+            especialidades = db.obtener_registros(query)
+            db.desconectar()
+            return especialidades if especialidades else []
+        except Exception as e:
+            print(f"[ERROR] Error al obtener especialidades: {str(e)}")
+            db.desconectar()
+            return []
+
+    def _obtener_medicos_directo(self):
+        """Obtiene médicos directamente de la BD con sus especialidades"""
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return []
+        
+        try:
+            query = """
+            SELECT DISTINCT m.matricula, m.nombre, m.apellido,
+                   GROUP_CONCAT(DISTINCT e.id_especialidad) as ids_especialidades,
+                   GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ') as especialidades
+            FROM Medico m
+            LEFT JOIN Medico_Especialidad me ON m.matricula = me.matricula
+            LEFT JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+            WHERE m.activo = 1
+            GROUP BY m.matricula, m.nombre, m.apellido
+            ORDER BY m.nombre, m.apellido
+            """
             medicos = db.obtener_registros(query)
             db.desconectar()
             return medicos if medicos else []
@@ -66,37 +92,130 @@ class ProgramarTurnoDialog:
         self._limpiar_frame()
         
         medicos = self._obtener_medicos_directo()
+        especialidades = self._obtener_especialidades_directo()
         
         if not medicos:
             messagebox.showerror("Error", "No hay médicos disponibles")
             self.window.destroy()
             return
         
-        frame_lista = ttk.Frame(self.frame_paso)
+        # Frame de filtros
+        frame_filtros = ttk.LabelFrame(self.frame_paso, text="Filtrar Médicos", padding=10)
+        frame_filtros.pack(fill="x", pady=(0, 10))
+        
+        # Fila 1: Búsqueda por nombre/matrícula
+        ttk.Label(frame_filtros, text="Buscar por nombre o matrícula:", font=("Arial", 9)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        
+        self.entry_busqueda_medico = ttk.Entry(frame_filtros, width=40)
+        self.entry_busqueda_medico.grid(row=0, column=1, sticky="ew", padx=(10, 5))
+        self.entry_busqueda_medico.bind("<KeyRelease>", lambda e: self._filtrar_medicos())
+        
+        ttk.Button(frame_filtros, text="✕ Limpiar", command=self._limpiar_busqueda_medico).grid(row=0, column=2, padx=(0, 0))
+        
+        # Fila 2: Filtro por especialidad
+        ttk.Label(frame_filtros, text="Filtrar por especialidad:", font=("Arial", 9)).grid(row=1, column=0, sticky="w", pady=(5, 0))
+        
+        self.especialidad_var = tk.StringVar(value="Todas")
+        especialidades_nombres = ["Todas"] + [esp['nombre'] for esp in especialidades]
+        
+        self.combo_especialidad = ttk.Combobox(
+            frame_filtros, 
+            textvariable=self.especialidad_var,
+            values=especialidades_nombres,
+            state="readonly",
+            width=37
+        )
+        self.combo_especialidad.grid(row=1, column=1, sticky="ew", padx=(10, 5), pady=(5, 0))
+        self.combo_especialidad.bind("<<ComboboxSelected>>", lambda e: self._filtrar_medicos())
+        
+        ttk.Button(frame_filtros, text="↻ Todas", command=self._resetear_especialidad).grid(row=1, column=2, padx=(0, 0), pady=(5, 0))
+        
+        frame_filtros.columnconfigure(1, weight=1)
+        
+        # Frame de lista de médicos
+        frame_lista = ttk.LabelFrame(self.frame_paso, text="Médicos Disponibles", padding=10)
         frame_lista.pack(fill="both", expand=True)
         
-        ttk.Label(frame_lista, text=f"Médicos disponibles ({len(medicos)}):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.label_contador_medicos = ttk.Label(frame_lista, text="", font=("Arial", 9))
+        self.label_contador_medicos.pack(anchor="w", pady=(0, 5))
         
         scrollbar = ttk.Scrollbar(frame_lista)
         scrollbar.pack(side="right", fill="y")
         
-        self.listbox_medicos = tk.Listbox(frame_lista, yscrollcommand=scrollbar.set, height=15, font=("Arial", 9))
+        self.listbox_medicos = tk.Listbox(frame_lista, yscrollcommand=scrollbar.set, height=12, font=("Arial", 9))
         scrollbar.config(command=self.listbox_medicos.yview)
         self.listbox_medicos.pack(fill="both", expand=True, pady=5)
         
-        for med in medicos:
-            label = f"Dr/Dra. {med['nombre']} {med['apellido']} (Mat: {med['matricula']})"
-            self.listbox_medicos.insert(tk.END, label)
+        # Guardar todos los médicos y especialidades
+        self.todos_los_medicos_paso1 = medicos
+        self.medicos_filtrados_paso1 = medicos
+        self.todas_especialidades = especialidades
+        
+        self._repoblar_listbox_medicos()
         
         if len(medicos) == 1:
             self.listbox_medicos.selection_set(0)
-        
-        self.medicos_paso1 = medicos
         
         self._actualizar_botones(
             btn_siguiente=lambda: self._seleccionar_medico(),
             btn_cancelar=True
         )
+    
+    def _filtrar_medicos(self):
+        """Filtra los médicos según el texto de búsqueda y especialidad seleccionada"""
+        texto_busqueda = self.entry_busqueda_medico.get().lower().strip()
+        especialidad_seleccionada = self.especialidad_var.get()
+        
+        self.medicos_filtrados_paso1 = []
+        
+        for med in self.todos_los_medicos_paso1:
+            # Filtro por texto (nombre, apellido o matrícula)
+            nombre_completo = f"{med['nombre']} {med['apellido']}".lower()
+            matricula_str = str(med['matricula'])
+            
+            coincide_texto = True
+            if texto_busqueda:
+                coincide_texto = (texto_busqueda in nombre_completo or texto_busqueda in matricula_str)
+            
+            # Filtro por especialidad
+            coincide_especialidad = True
+            if especialidad_seleccionada != "Todas":
+                especialidades_medico = (med.get('especialidades') or '').split(', ')
+                coincide_especialidad = especialidad_seleccionada in especialidades_medico
+            
+            # Agregar si cumple ambos filtros
+            if coincide_texto and coincide_especialidad:
+                self.medicos_filtrados_paso1.append(med)
+        
+        self._repoblar_listbox_medicos()
+    
+    def _repoblar_listbox_medicos(self):
+        """Repuebla el listbox con los médicos filtrados"""
+        self.listbox_medicos.delete(0, tk.END)
+        
+        for med in self.medicos_filtrados_paso1:
+            especialidades_str = med.get('especialidades') or 'Sin especialidad'
+            label = f"Dr/Dra. {med['nombre']} {med['apellido']} (Mat: {med['matricula']}) - {especialidades_str}"
+            self.listbox_medicos.insert(tk.END, label)
+        
+        # Actualizar contador
+        total = len(self.todos_los_medicos_paso1)
+        mostrados = len(self.medicos_filtrados_paso1)
+        
+        if mostrados == total:
+            self.label_contador_medicos.config(text=f"Mostrando {mostrados} médico(s)")
+        else:
+            self.label_contador_medicos.config(text=f"Mostrando {mostrados} de {total} médico(s)")
+    
+    def _limpiar_busqueda_medico(self):
+        """Limpia el campo de búsqueda de médicos"""
+        self.entry_busqueda_medico.delete(0, tk.END)
+        self._filtrar_medicos()
+    
+    def _resetear_especialidad(self):
+        """Resetea el filtro de especialidad a 'Todas'"""
+        self.especialidad_var.set("Todas")
+        self._filtrar_medicos()
     
     def _seleccionar_medico(self):
         """Valida y pasa al paso 2"""
@@ -105,7 +224,7 @@ class ProgramarTurnoDialog:
             messagebox.showwarning("Advertencia", "Selecciona un médico")
             return
         
-        self.medico_seleccionado = self.medicos_paso1[sel[0]]
+        self.medico_seleccionado = self.medicos_filtrados_paso1[sel[0]]
         self._mostrar_paso_2()
     
     def _mostrar_paso_2(self):

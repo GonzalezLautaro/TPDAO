@@ -153,7 +153,7 @@ class AgregarMedicamentoDialog:
         self.medicamento_data = None
         self.window = tk.Toplevel(parent)
         self.window.title("Agregar Medicamento")
-        self.window.geometry("580x380")
+        self.window.geometry("580x420")
         self.window.resizable(False, False)
         
         container = ttk.Frame(self.window)
@@ -176,24 +176,37 @@ class AgregarMedicamentoDialog:
             nombres = [f"{m['nombre']} ({m['presentacion']})" for m in self.medicamentos]
             self.combo = ttk.Combobox(form, textvariable=self.med_var, 
                                      values=nombres, state="readonly", width=42)
-            self.combo.grid(row=0, column=1, sticky="ew", pady=8)
+            self.combo.grid(row=0, column=1, columnspan=2, sticky="ew", pady=8)
         else:
             ttk.Label(form, text="Sin medicamentos", foreground="red").grid(row=0, column=1, pady=8)
         
+        # Dosis - ahora con valor numérico y unidad separados
         ttk.Label(form, text="Dosis:").grid(row=1, column=0, sticky="w", pady=8)
-        self.entry_dosis = ttk.Entry(form, width=45)
-        self.entry_dosis.insert(0, "1")
-        self.entry_dosis.grid(row=1, column=1, sticky="ew", pady=8)
+        
+        # Frame para valor y unidad
+        dosis_frame = ttk.Frame(form)
+        dosis_frame.grid(row=1, column=1, columnspan=2, sticky="ew", pady=8)
+        
+        self.entry_dosis_valor = ttk.Entry(dosis_frame, width=15)
+        self.entry_dosis_valor.insert(0, "1")
+        self.entry_dosis_valor.pack(side="left", padx=(0, 5))
+        
+        # Combobox para unidad de medida
+        self.unidad_var = tk.StringVar(value="mg")
+        unidades = ["mg", "g", "ml", "mcg", "UI", "comprimido(s)", "cápsula(s)", "ampolla(s)", "gota(s)", "unidad(es)"]
+        self.combo_unidad = ttk.Combobox(dosis_frame, textvariable=self.unidad_var, 
+                                         values=unidades, state="readonly", width=15)
+        self.combo_unidad.pack(side="left")
         
         ttk.Label(form, text="Cantidad:").grid(row=2, column=0, sticky="w", pady=8)
         self.entry_cant = ttk.Entry(form, width=45)
         self.entry_cant.insert(0, "1")
-        self.entry_cant.grid(row=2, column=1, sticky="ew", pady=8)
+        self.entry_cant.grid(row=2, column=1, columnspan=2, sticky="ew", pady=8)
         
         ttk.Label(form, text="Indicación:").grid(row=3, column=0, sticky="nw", pady=8)
         self.text_ind = tk.Text(form, height=4, width=45, font=("Arial", 9))
         self.text_ind.insert("1.0", "Tomar cada 8 horas")
-        self.text_ind.grid(row=3, column=1, sticky="ew", pady=8)
+        self.text_ind.grid(row=3, column=1, columnspan=2, sticky="ew", pady=8)
         
         form.columnconfigure(1, weight=1)
         
@@ -230,22 +243,23 @@ class AgregarMedicamentoDialog:
             messagebox.showwarning("Advertencia", "Selecciona un medicamento")
             return
         
-        dosis = self.entry_dosis.get().strip()
+        dosis_valor = self.entry_dosis_valor.get().strip()
+        unidad = self.unidad_var.get().strip()
         cant = self.entry_cant.get().strip()
         ind = self.text_ind.get("1.0", tk.END).strip()
         
-        if not dosis or not cant or not ind:
+        if not dosis_valor or not unidad or not cant or not ind:
             messagebox.showwarning("Advertencia", "Completa todos los campos")
             return
         
-        # Validar que dosis sea un número entero
+        # Validar que dosis_valor sea un número (puede ser decimal)
         try:
-            dosis_int = int(dosis)
-            if dosis_int <= 0:
+            dosis_num = float(dosis_valor)
+            if dosis_num <= 0:
                 messagebox.showwarning("Advertencia", "La dosis debe ser un número mayor a 0")
                 return
         except ValueError:
-            messagebox.showwarning("Advertencia", "La dosis debe ser un número entero")
+            messagebox.showwarning("Advertencia", "La dosis debe ser un número válido")
             return
         
         # Validar que cantidad sea un número entero
@@ -260,11 +274,14 @@ class AgregarMedicamentoDialog:
         
         med = self.medicamentos[idx]
         
+        # Concatenar dosis con unidad para guardar en BD
+        dosis_completa = f"{dosis_valor} {unidad}"
+        
         self.medicamento_data = {
             'id_medicamento': med['id_medicamento'],
             'medicamento_nombre': med['nombre'],
             'presentacion': med['presentacion'],
-            'dosis': dosis_int,
+            'dosis': dosis_completa,  # Ej: "500 mg" o "2.5 ml"
             'cantidad': cant_int,
             'indicacion': ind
         }

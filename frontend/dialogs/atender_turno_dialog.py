@@ -256,9 +256,9 @@ Horario: {turno_data['horario']}"""
             return
         
         try:
-            # Obtener datos del turno para el historial
+            # Obtener datos del turno
             query_turno = """
-            SELECT t.id_paciente, t.matricula, t.id_turno
+            SELECT t.id_paciente, t.id_turno
             FROM Turno t
             WHERE t.id_turno = %s
             """
@@ -269,21 +269,22 @@ Horario: {turno_data['horario']}"""
                 db.desconectar()
                 return
             
-            # Insertar historial clínico
+            # Insertar historial clínico con las columnas correctas de la BD
+            # Columnas reales: id_turno, id_paciente, diagnostico, tratamiento, notas, observaciones
             query_historial = """
             INSERT INTO Historial_clinico 
-            (id_paciente, matricula, fecha, diagnostico, tratamiento, observaciones, indicaciones)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            (id_turno, id_paciente, diagnostico, tratamiento, notas, observaciones)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """
             
+            # Usar 'notas' para las indicaciones
             params_historial = (
+                turno['id_turno'],
                 turno['id_paciente'],
-                turno['matricula'],
-                fecha_obj,
                 diagnostico,
                 tratamiento,
-                observaciones,
-                indicaciones
+                indicaciones,  # -> columna 'notas'
+                observaciones
             )
             
             resultado = db.ejecutar_consulta(query_historial, params_historial)
@@ -294,11 +295,22 @@ Horario: {turno_data['horario']}"""
                 return
             
             # Obtener el ID del historial recién insertado
-            id_historial = db.cursor.lastrowid
+            id_historial = db.get_last_insert_id()
+            
+            if not id_historial:
+                messagebox.showerror("Error", "No se pudo obtener el ID del historial")
+                db.desconectar()
+                return
+            
+            print(f"[DEBUG] Historial guardado con ID: {id_historial}")
             
             # Guardar recetas si existen
             if self.recetas:
-                for receta in self.recetas:
+                print(f"[DEBUG] Guardando {len(self.recetas)} receta(s)...")
+                
+                for idx, receta in enumerate(self.recetas, 1):
+                    print(f"[DEBUG] Guardando receta #{idx}...")
+                    
                     # Insertar receta
                     query_receta = """
                     INSERT INTO Receta (id_historial, fecha_emision, fecha_vencimiento, observaciones)
@@ -311,26 +323,42 @@ Horario: {turno_data['horario']}"""
                         receta['observaciones']
                     )
                     
+                    print(f"[DEBUG] Params receta: {params_receta}")
                     resultado_receta = db.ejecutar_consulta(query_receta, params_receta)
                     
-                    if resultado_receta:
-                        id_receta = db.cursor.lastrowid
+                    if resultado_receta and resultado_receta > 0:
+                        id_receta = db.get_last_insert_id()
+                        print(f"[DEBUG] Receta guardada con ID: {id_receta}")
+                        
+                        if not id_receta:
+                            print(f"[ERROR] No se pudo obtener ID de receta #{idx}")
+                            continue
                         
                         # Insertar detalles de la receta
-                        for detalle in receta['detalles']:
+                        for det_idx, detalle in enumerate(receta['detalles'], 1):
+                            print(f"[DEBUG] Guardando detalle {det_idx}/{len(receta['detalles'])}...")
+                            
                             query_detalle = """
-                            INSERT INTO Detalle_receta (id_receta, id_medicamento, dosis, cantidad, indicacion)
+                            INSERT INTO Detalle_receta (id_receta, id_medicamento, dosis, indicaciones, cantidad)
                             VALUES (%s, %s, %s, %s, %s)
                             """
                             params_detalle = (
                                 id_receta,
                                 detalle['id_medicamento'],
                                 detalle['dosis'],
-                                detalle['cantidad'],
-                                detalle['indicacion']
+                                detalle['indicacion'],
+                                detalle['cantidad']
                             )
                             
-                            db.ejecutar_consulta(query_detalle, params_detalle)
+                            print(f"[DEBUG] Params detalle: {params_detalle}")
+                            resultado_detalle = db.ejecutar_consulta(query_detalle, params_detalle)
+                            
+                            if resultado_detalle and resultado_detalle > 0:
+                                print(f"[DEBUG] ✓ Detalle guardado")
+                            else:
+                                print(f"[ERROR] ✗ Error guardando detalle")
+                    else:
+                        print(f"[ERROR] Error al guardar receta #{idx}")
             
             # Actualizar estado del turno a "Atendido"
             query_turno_update = """

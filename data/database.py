@@ -86,6 +86,10 @@ class Database:
                 cursor.execute(query)
             
             self.connection.commit()
+            
+            # Guardar el ID del último registro insertado
+            self.last_insert_id = cursor.lastrowid
+            
             affected_rows = cursor.rowcount
             cursor.close()
             
@@ -94,6 +98,10 @@ class Database:
         except Error as e:
             print(f"✗ Error en consulta: {e}")
             return None
+    
+    def get_last_insert_id(self):
+        """Retorna el ID del último registro insertado"""
+        return getattr(self, 'last_insert_id', 0)
     
     def obtener_registro(self, query, params=None):
         """

@@ -260,13 +260,32 @@ class ProgramarTurnoDialog:
         fecha_combo.pack(side="left", padx=10)
         fecha_combo.bind("<<ComboboxSelected>>", lambda e: self._dibujar_tabla_turnos(turnos_por_fecha))
         
-        # Frame para tabla de turnos
+        # Frame para tabla de turnos con scrollbar
         tabla_frame = ttk.LabelFrame(self.frame_paso, text="Turnos Disponibles", padding=10)
         tabla_frame.pack(fill="both", expand=True)
         
+        # Canvas con scrollbar para permitir scroll vertical
+        canvas_container = ttk.Frame(tabla_frame)
+        canvas_container.pack(fill="both", expand=True)
+        
+        # Scrollbar vertical
+        v_scrollbar = ttk.Scrollbar(canvas_container, orient="vertical")
+        v_scrollbar.pack(side="right", fill="y")
+        
         # Canvas para la tabla interactiva
-        self.canvas_turnos = tk.Canvas(tabla_frame, bg="white", highlightthickness=1)
-        self.canvas_turnos.pack(fill="both", expand=True)
+        self.canvas_turnos = tk.Canvas(canvas_container, bg="white", highlightthickness=1, 
+                                       yscrollcommand=v_scrollbar.set)
+        self.canvas_turnos.pack(side="left", fill="both", expand=True)
+        
+        # Configurar scrollbar
+        v_scrollbar.config(command=self.canvas_turnos.yview)
+        
+        # Bind para scroll con mouse wheel
+        def _on_mousewheel(event):
+            self.canvas_turnos.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        self.canvas_turnos.bind("<Enter>", lambda e: self.canvas_turnos.bind_all("<MouseWheel>", _on_mousewheel))
+        self.canvas_turnos.bind("<Leave>", lambda e: self.canvas_turnos.unbind_all("<MouseWheel>"))
         
         # Guardar referencias
         self.turnos_por_fecha = turnos_por_fecha

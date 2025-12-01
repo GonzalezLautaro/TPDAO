@@ -102,26 +102,21 @@ CREATE TABLE Agenda (
 -- TABLA: Turno
 -- ============================================================
 CREATE TABLE Turno (
-    id_turno INT PRIMARY KEY AUTO_INCREMENT,
+    id_turno INT AUTO_INCREMENT PRIMARY KEY,
     id_paciente INT NULL,
     matricula INT NOT NULL,
     id_consultorio INT NOT NULL,
-    id_agenda INT NOT NULL,
+    id_agenda INT NULL,
     fecha DATE NOT NULL,
     hora_inicio TIME NOT NULL,
     hora_fin TIME NOT NULL,
-    estado VARCHAR(50) NOT NULL DEFAULT 'Libre',
+    estado ENUM('Libre', 'Programado', 'Atendido', 'Cancelado', 'Inasistencia') DEFAULT 'Libre',
     observaciones TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_paciente) REFERENCES Paciente(id_paciente) ON DELETE CASCADE,
-    FOREIGN KEY (matricula) REFERENCES Medico(matricula) ON DELETE CASCADE,
-    FOREIGN KEY (id_consultorio) REFERENCES Consultorio(id_consultorio) ON DELETE CASCADE,
-    FOREIGN KEY (id_agenda) REFERENCES Agenda(id_agenda) ON DELETE CASCADE,
-    INDEX idx_paciente (id_paciente),
-    INDEX idx_medico (matricula),
-    INDEX idx_fecha (fecha),
-    INDEX idx_estado (estado),
-    UNIQUE KEY unique_turno (id_paciente, matricula, fecha, hora_inicio)
+    FOREIGN KEY (id_paciente) REFERENCES Paciente(id_paciente),
+    FOREIGN KEY (matricula) REFERENCES Medico(matricula),
+    FOREIGN KEY (id_consultorio) REFERENCES Consultorio(id_consultorio),
+    FOREIGN KEY (id_agenda) REFERENCES Agenda(id_agenda)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

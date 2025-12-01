@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import date
 from ..controllers.turno_controller import TurnoController
 from ..dialogs.programar_turno_dialog import ProgramarTurnoDialog
 from ..dialogs.atender_turno_dialog import AtenderTurnoDialog
@@ -10,13 +11,59 @@ class TurnosView(ttk.Frame):
         super().__init__(parent, padding=12)
         self.ctrl = TurnoController()
         
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", pady=(0, 10))
+        # Frame superior con botones
+        top_frame = ttk.Frame(self)
+        top_frame.pack(fill="x", pady=(0, 10))
         
-        ttk.Button(btn_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
-        ttk.Button(btn_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
+        ttk.Button(top_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
+        ttk.Button(top_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
         
-        tabla_frame = ttk.LabelFrame(self, text="Turnos Programados")
+        # Frame de filtros por FECHA (primer nivel)
+        filtro_fecha_frame = ttk.LabelFrame(self, text="Filtrar por Fecha:", padding=8)
+        filtro_fecha_frame.pack(fill="x", pady=(0, 5))
+        
+        self.filtro_fecha_var = tk.StringVar(value="hoy")
+        
+        filtros_fecha = [
+            ("hoy", "📅 Hoy"),
+            ("proximos", "📆 Próximos"),
+            ("todos", "📋 Todos")
+        ]
+        
+        for valor, texto in filtros_fecha:
+            ttk.Radiobutton(
+                filtro_fecha_frame, 
+                text=texto, 
+                variable=self.filtro_fecha_var, 
+                value=valor,
+                command=self._refresh
+            ).pack(side="left", padx=8)
+        
+        # Frame de filtros por ESTADO (segundo nivel)
+        filtro_estado_frame = ttk.LabelFrame(self, text="Filtrar por Estado:", padding=8)
+        filtro_estado_frame.pack(fill="x", pady=(0, 10))
+        
+        self.filtro_estado_var = tk.StringVar(value="programados")
+        
+        filtros_estado = [
+            ("todos_estados", "📋 Todos"),
+            ("programados", "✓ Programados"),
+            ("atendidos", "✅ Atendidos"),
+            ("cancelados", "❌ Cancelados"),
+            ("inasistencia", "⚠️ Inasistencia")
+        ]
+        
+        for valor, texto in filtros_estado:
+            ttk.Radiobutton(
+                filtro_estado_frame, 
+                text=texto, 
+                variable=self.filtro_estado_var, 
+                value=valor,
+                command=self._refresh
+            ).pack(side="left", padx=8)
+        
+        # Tabla de turnos
+        tabla_frame = ttk.LabelFrame(self, text="Turnos")
         tabla_frame.pack(fill="both", expand=True)
         
         self.tree = ttk.Treeview(
@@ -86,6 +133,17 @@ class TurnosView(ttk.Frame):
                 fecha = valores[4]
                 horario = valores[5]
                 estado = valores[6]
+                
+                # Verificar si el turno ya pasó
+                try:
+                    fecha_turno = date.fromisoformat(str(fecha))
+                    turno_pasado = fecha_turno < date.today()
+                except:
+                    turno_pasado = False
+                
+                # Si el turno ya pasó, o está Atendido, Cancelado o Inasistencia, no hacer nada
+                if turno_pasado or estado in ['Atendido', 'Cancelado', 'Inasistencia']:
+                    return
                 
                 # Determinar ancho de la columna de acciones
                 acciones_col_width = self.tree.column("acciones", "width")
@@ -169,18 +227,29 @@ class TurnosView(ttk.Frame):
                 messagebox.showerror("Error", msg)
     
     def _refresh(self):
-        """Recarga la lista de turnos programados"""
+        """Recarga la lista de turnos según los filtros seleccionados"""
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        turnos = self.ctrl.obtener_turnos_programados()
+        filtro_fecha = self.filtro_fecha_var.get()
+        filtro_estado = self.filtro_estado_var.get()
+        
+        turnos = self.ctrl.obtener_turnos_con_doble_filtro(filtro_fecha, filtro_estado)
         
         for t in turnos:
-            # Determinar texto de acciones según estado
-            if t['estado'] == 'Programado':
+            # Verificar si el turno ya pasó (fecha anterior a hoy)
+            try:
+                fecha_turno = date.fromisoformat(str(t['fecha']))
+                turno_pasado = fecha_turno < date.today()
+            except:
+                turno_pasado = False
+            
+            # Determinar texto de acciones según estado y si ya pasó
+            if turno_pasado or t['estado'] in ['Atendido', 'Cancelado', 'Inasistencia']:
+                # Turnos pasados, atendidos, cancelados o inasistencia: sin acciones
+                acciones = "— | — | —"
+            elif t['estado'] == 'Programado':
                 acciones = "✓ Atender | ✕ Cancelar | ⚠ No Asistió"
-            elif t['estado'] == 'Atendido':
-                acciones = "— | ✕ Cancelar | ⚠ No Asistió"
             else:
                 acciones = "— | — | —"
             

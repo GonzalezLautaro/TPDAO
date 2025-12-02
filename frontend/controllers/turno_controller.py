@@ -20,7 +20,7 @@ class TurnoController:
     def obtener_medicos(self) -> List[Dict]:
         """Obtiene lista de médicos activos"""
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             print("[DEBUG] Error conectando a BD")
             return []
         
@@ -63,7 +63,7 @@ class TurnoController:
     def obtener_pacientes(self) -> List[Dict]:
         """Obtiene lista de pacientes activos"""
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             print("[DEBUG] Error conectando a BD")
             return []
         
@@ -90,7 +90,7 @@ class TurnoController:
     def obtener_turnos_libres_medico(self, matricula: int) -> List[Dict]:
         """Obtiene turnos libres de un médico, agrupados por día"""
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return []
         
         try:
@@ -148,7 +148,7 @@ class TurnoController:
             Cantidad de turnos marcados como inasistencia
         """
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return 0
         
         try:
@@ -183,7 +183,7 @@ class TurnoController:
         self.marcar_inasistencias_automaticas()
         
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return []
         
         try:
@@ -227,7 +227,7 @@ class TurnoController:
             (True/False, mensaje)
         """
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return False, "[ERROR] No se pudo conectar a la base de datos"
         
         try:
@@ -277,7 +277,7 @@ class TurnoController:
             (True/False, mensaje)
         """
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return False, "[ERROR] No se pudo conectar a la base de datos"
         
         try:
@@ -353,7 +353,7 @@ class TurnoController:
         self.marcar_inasistencias_automaticas()
         
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return []
         
         try:
@@ -418,7 +418,7 @@ class TurnoController:
         self.marcar_inasistencias_automaticas()
         
         db = Database()
-        if not db.conectar("127.0.0.1:3306/hospital_db_tpdao"):
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
             return []
         
         try:

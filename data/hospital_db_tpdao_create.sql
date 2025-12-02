@@ -1,11 +1,11 @@
 -- ============================================================
 -- SCRIPT DE CREACIÓN DE BASE DE DATOS - SISTEMA MÉDICO
--- Base de datos: hospital_db_tpdao
+-- Base de datos: hospital_db
 -- ============================================================
 
-DROP DATABASE IF EXISTS hospital_db_tpdao;
-CREATE DATABASE hospital_db_tpdao CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE hospital_db_tpdao;
+DROP DATABASE IF EXISTS hospital_db;
+CREATE DATABASE hospital_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE hospital_db;
 
 -- ============================================================
 -- TABLA: especialidad

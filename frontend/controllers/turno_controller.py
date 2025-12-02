@@ -261,6 +261,56 @@ class TurnoController:
             db.desconectar()
             return False, f"[ERROR] {str(e)}"
 
+    def programar_turno_con_especialidad(self, id_paciente: int, matricula: int, id_turno: int, 
+                        id_especialidad: int, observaciones: str = "") -> Tuple[bool, str]:
+        """
+        Programa un turno existente INCLUYENDO la especialidad
+        
+        Args:
+            id_paciente: ID del paciente
+            matricula: Matrícula del médico
+            id_turno: ID del turno a programar
+            id_especialidad: ID de la especialidad seleccionada
+            observaciones: Observaciones adicionales
+        
+        Returns:
+            (True/False, mensaje)
+        """
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return False, "[ERROR] No se pudo conectar a la base de datos"
+        
+        try:
+            # Verificar que el turno existe y está libre
+            query_check = "SELECT id_turno, estado FROM Turno WHERE id_turno = %s"
+            turno = db.obtener_registro(query_check, (id_turno,))
+            
+            if not turno:
+                return False, "[ERROR] Turno no encontrado"
+            
+            if turno['estado'] != 'Libre':
+                return False, f"[ERROR] El turno no está disponible (estado: {turno['estado']})"
+            
+            # Actualizar el turno CON especialidad
+            query_update = """
+            UPDATE Turno 
+            SET id_paciente = %s, id_especialidad = %s, estado = 'Programado', observaciones = %s
+            WHERE id_turno = %s AND estado = 'Libre'
+            """
+            
+            resultado = db.ejecutar_consulta(query_update, (id_paciente, id_especialidad, observaciones, id_turno))
+            
+            if resultado is not None and resultado > 0:
+                db.desconectar()
+                return True, "[OK] Turno programado exitosamente"
+            else:
+                db.desconectar()
+                return False, "[ERROR] No se pudo programar el turno"
+        
+        except Exception as e:
+            db.desconectar()
+            return False, f"[ERROR] {str(e)}"
+
     # ========== CAMBIAR ESTADO ==========
     def cambiar_estado_turno(self, id_turno: int, nuevo_estado: str) -> Tuple[bool, str]:
         """Cambia el estado de un turno"""
@@ -363,15 +413,8 @@ class TurnoController:
     def obtener_turnos_con_doble_filtro(self, filtro_fecha: str = "hoy", filtro_estado: str = "todos_estados") -> List[Dict]:
         """
         Obtiene turnos aplicando dos filtros: por fecha y por estado
-        
-        Args:
-            filtro_fecha: 'hoy', 'proximos', 'todos'
-            filtro_estado: 'todos_estados', 'programados', 'atendidos', 'cancelados', 'inasistencia'
-        
-        Returns:
-            Lista de turnos filtrados
+        INCLUYENDO EL NOMBRE DE LA ESPECIALIDAD
         """
-        # Primero marcar automáticamente las inasistencias
         self.marcar_inasistencias_automaticas()
         
         db = Database()
@@ -379,35 +422,35 @@ class TurnoController:
             return []
         
         try:
-            # Base de la query
+            # Base de la query CON especialidad
             query_base = """
             SELECT t.id_turno, 
                    CONCAT(p.nombre, ' ', p.apellido) as paciente,
                    CONCAT(m.nombre, ' ', m.apellido) as medico,
                    c.numero as consultorio,
+                   e.nombre as especialidad,
                    t.fecha, t.hora_inicio, t.hora_fin, t.estado
             FROM Turno t
             JOIN Medico m ON t.matricula = m.matricula
             LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
+            LEFT JOIN Especialidad e ON t.id_especialidad = e.id_especialidad
             WHERE t.id_paciente IS NOT NULL
             """
             
+            # Agregar condiciones según filtro
             condiciones = []
             params = []
             
             hoy = date.today()
             
-            # Filtro por FECHA (primer nivel)
             if filtro_fecha == "hoy":
                 condiciones.append("t.fecha = %s")
                 params.append(hoy)
             elif filtro_fecha == "proximos":
                 condiciones.append("t.fecha > %s")
                 params.append(hoy)
-            # Si es "todos", no agregamos condición de fecha
             
-            # Filtro por ESTADO (segundo nivel)
             if filtro_estado == "programados":
                 condiciones.append("t.estado = 'Programado'")
             elif filtro_estado == "atendidos":
@@ -416,10 +459,9 @@ class TurnoController:
                 condiciones.append("t.estado = 'Cancelado'")
             elif filtro_estado == "inasistencia":
                 condiciones.append("t.estado = 'Inasistencia'")
-            else:  # todos_estados
+            else:
                 condiciones.append("t.estado IN ('Programado', 'Atendido', 'Cancelado', 'Inasistencia')")
             
-            # Construir query final
             if condiciones:
                 query = query_base + " AND " + " AND ".join(condiciones)
             else:

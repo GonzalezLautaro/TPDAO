@@ -17,7 +17,7 @@ class Database:
             self.port = 3306
             self.user = "root"
             self.password = "123456"  # ← CAMBIAR AQUÍ || si no tienes contraseña, dejar vacío: self.password = ""
-            self.database = "hospital_db"
+            self.database = "hospital_db_tpdao"  # Cambiado de hospital_db_tpdao a hospital_db_tpdao
             self._initialized = True
     
     @classmethod

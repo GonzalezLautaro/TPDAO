@@ -285,14 +285,17 @@ class TurnosView(ttk.Frame):
         )
 
         try:
-            # SIN incluir_cancelados (ya no existe)
+            # Usar los mismos datos de Database
+            from data.database import Database
+            db_config = Database()
+            
             png = grafico_asistencia_bd(
                 ruta,
-                host="127.0.0.1",
-                user="root",
-                password="vleksel17db",
-                database="hospital_db",
-                port=3306,
+                host=db_config.host,
+                user=db_config.user,
+                password=db_config.password,
+                database=db_config.database,
+                port=db_config.port,
                 tipo="pie"
             )
 

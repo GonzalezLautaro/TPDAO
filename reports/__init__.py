@@ -2,7 +2,6 @@
 from .periodos import contar_turnos_por_periodo, reporte_turnos_por_periodo_text
 from .asistencia import grafico_asistencia_bd
 
-
 from .exports import (
     guardar_reporte_a_archivo,
     export_turnos_to_csv,
@@ -11,7 +10,6 @@ from .exports import (
     export_pacientes_to_json,
 )
 from .pacientes import pacientes_atendidos_en_rango, reporte_pacientes_atendidos_en_rango_text
-from .asistencia import calcular_asistencia, reporte_asistencia_text, generar_grafico_asistencia
 
 __all__ = [
     "listado_turnos_por_medico",
@@ -25,9 +23,5 @@ __all__ = [
     "export_pacientes_to_json",
     "pacientes_atendidos_en_rango",
     "reporte_pacientes_atendidos_en_rango_text",
-    "calcular_asistencia",
-    "reporte_asistencia_text",
-    "generar_grafico_asistencia",
     "grafico_asistencia_bd",
-
 ]

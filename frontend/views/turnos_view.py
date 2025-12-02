@@ -18,7 +18,10 @@ class TurnosView(ttk.Frame):
         ttk.Button(top_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
         ttk.Button(top_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
         ttk.Button(top_frame, text="🖨 Imprimir Receta", command=self._imprimir_receta).pack(side="left", padx=5)
+        ttk.Button(top_frame, text="📊 Asistencia", command=self._generar_asistencia).pack(side="left", padx=5)
 
+
+        
         # Frame de filtros por FECHA (primer nivel)
         filtro_fecha_frame = ttk.LabelFrame(self, text="Filtrar por Fecha:", padding=8)
         filtro_fecha_frame.pack(fill="x", pady=(0, 5))
@@ -270,6 +273,38 @@ class TurnosView(ttk.Frame):
                 messagebox.showinfo("Éxito", f"Receta #{id_receta} generada:\n{archivo}")
             else:
                 messagebox.showerror("Error", "Fallo al generar el PDF (instalá reportlab).")
+
+    def _generar_asistencia(self):
+        from tkinter import messagebox
+        import os
+        from reports.asistencia import grafico_asistencia_bd
+
+        ruta = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "reports", "out", "asistencia.png"
+        )
+
+        try:
+            # SIN incluir_cancelados (ya no existe)
+            png = grafico_asistencia_bd(
+                ruta,
+                host="127.0.0.1",
+                user="root",
+                password="vleksel17db",
+                database="hospital_db",
+                port=3306,
+                tipo="pie"
+            )
+
+            messagebox.showinfo("Reporte listo", f"Gráfico generado en:\n{png}")
+
+            try:
+                os.startfile(png)  # abrir en Windows
+            except Exception:
+                pass
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")
 
     
     def _refresh(self):

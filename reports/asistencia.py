@@ -9,6 +9,9 @@ from typing import Optional, Tuple
 
 import mysql.connector
 import matplotlib.pyplot as plt
+import mysql.connector
+
+
 
 
 def _contar_asistencias(

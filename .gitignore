@@ -142,3 +142,8 @@ Thumbs.db
 *.sql
 config.ini
 secrets.py
+
+# Ignorar archivos SQL EXCEPTO los de creación
+*.sql
+!data/hospital_db_tpdao_create.sql
+!data/hospital_db_tpdao_inserts.sql

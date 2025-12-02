@@ -2,7 +2,7 @@
 """
 Script para generar turnos automáticamente basados en las agendas
 Crea turnos de 30 minutos para cada rango horario de agenda
-Estado inicial: 'Libre'
+Estado inicial: 'Libre', id_especialidad: NULL
 """
 
 import sys
@@ -125,15 +125,15 @@ def generar_turnos_desde_agendas(fecha_inicio: date = None, dias_adelante: int =
                         if hora_fin_turno > hora_fin_agenda:
                             break
                         
-                        # Construir la query INSERT
-                        query_insert = f"""INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado, observaciones)
-VALUES (NULL, {matricula}, {id_consultorio}, {id_agenda}, '{fecha_actual}', '{hora_inicio_turno}', '{hora_fin_turno}', 'Libre', NULL);"""
+                        # Construir la query INSERT con id_especialidad NULL
+                        query_insert = f"""INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, id_especialidad, fecha, hora_inicio, hora_fin, estado, observaciones)
+VALUES (NULL, {matricula}, {id_consultorio}, {id_agenda}, NULL, '{fecha_actual}', '{hora_inicio_turno}', '{hora_fin_turno}', 'Libre', NULL);"""
                         
-                        # Ejecutar la query
+                        # Ejecutar la query con id_especialidad NULL
                         try:
                             resultado = db.ejecutar_consulta(
-                                """INSERT INTO Turno (matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado)
-                                VALUES (%s, %s, %s, %s, %s, %s, 'Libre')""",
+                                """INSERT INTO Turno (matricula, id_consultorio, id_agenda, id_especialidad, fecha, hora_inicio, hora_fin, estado)
+                                VALUES (%s, %s, %s, NULL, %s, %s, %s, 'Libre')""",
                                 (matricula, id_consultorio, id_agenda, fecha_actual, hora_inicio_turno, hora_fin_turno)
                             )
                             

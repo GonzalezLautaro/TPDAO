@@ -4,6 +4,7 @@ from .views.turnos_view import TurnosView
 from .views.pacientes_view import PacientesView
 from .views.medicos_view import MedicosView
 from .views.especialidades_view import EspecialidadesView
+from .views.reportes_view import ReportesView
 from .styles.theme import setup_theme
 
 
@@ -21,5 +22,6 @@ def run_app():
     nb.add(PacientesView(nb), text="Pacientes")
     nb.add(MedicosView(nb), text="Médicos")
     nb.add(EspecialidadesView(nb), text="Especialidades")
+    nb.add(ReportesView(nb), text="Reportes")
 
     root.mainloop()

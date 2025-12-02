@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import os
 
 
 class ReportesView(ttk.Frame):
@@ -68,5 +69,35 @@ class ReportesView(ttk.Frame):
         pass
 
     def _grafico_asistencia(self):
-        # TODO: Implementar
-        pass
+        """Genera el gráfico de asistencia vs inasistencia"""
+        from reports.asistencia import grafico_asistencia_bd
+        from data.database import Database
+
+        ruta = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "reports", "out", "asistencia.png"
+        )
+
+        try:
+            # Usar los mismos datos de Database
+            db_config = Database()
+            
+            png = grafico_asistencia_bd(
+                ruta,
+                host=db_config.host,
+                user=db_config.user,
+                password=db_config.password,
+                database=db_config.database,
+                port=db_config.port,
+                tipo="pie"
+            )
+
+            messagebox.showinfo("Reporte listo", f"Gráfico generado en:\n{png}")
+
+            try:
+                os.startfile(png)  # abrir en Windows
+            except Exception:
+                pass
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")

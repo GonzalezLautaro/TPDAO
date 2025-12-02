@@ -18,9 +18,6 @@ class TurnosView(ttk.Frame):
         ttk.Button(top_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
         ttk.Button(top_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
         ttk.Button(top_frame, text="🖨 Imprimir Receta", command=self._imprimir_receta).pack(side="left", padx=5)
-        ttk.Button(top_frame, text="📊 Asistencia", command=self._generar_asistencia).pack(side="left", padx=5)
-
-
         
         # Frame de filtros por FECHA (primer nivel)
         filtro_fecha_frame = ttk.LabelFrame(self, text="Filtrar por Fecha:", padding=8)
@@ -235,85 +232,49 @@ class TurnosView(ttk.Frame):
                 messagebox.showerror("Error", msg)
 
     def _imprimir_receta(self):
-            """Genera PDF de una receta ya guardada en BD"""
-            
-            sel = self.tree.focus()
-            if not sel:
-                messagebox.showerror("Error", "Seleccioná un turno.")
-                return
+        """Genera PDF de una receta ya guardada en BD"""
+        
+        sel = self.tree.focus()
+        if not sel:
+            messagebox.showerror("Error", "Seleccioná un turno.")
+            return
 
-            valores = self.tree.item(sel)["values"]
+        valores = self.tree.item(sel)["values"]
 
-            # En tu tabla, valores[0] es id_turno ✔️
-            try:
-                id_turno = int(valores[0])
-            except:
-                messagebox.showerror("Error", "No pude leer el ID del turno.")
-                return
-
-            # Import tardío para no romper nada
-            from ..controllers.recetas_controller import RecetasController
-            ctrl = RecetasController()
-
-            # Ver receta existente asociada al turno
-            id_receta = ctrl.id_receta_de_turno(id_turno)
-            if not id_receta:
-                messagebox.showerror("Sin receta", "Este turno no tiene receta registrada.")
-                return
-
-            # Elegir destino del PDF
-            from tkinter import filedialog
-            archivo = filedialog.asksaveasfilename(
-                defaultextension=".pdf",
-                initialfile=f"receta_{id_receta}.pdf",
-                filetypes=[("PDF", "*.pdf")]
-            )
-            if not archivo:
-                return
-
-            # Generar PDF
-            ok = ctrl.generar_pdf(id_receta, archivo)
-            if ok:
-                messagebox.showinfo("Éxito", f"Receta #{id_receta} generada:\n{archivo}")
-            else:
-                messagebox.showerror("Error", "Fallo al generar el PDF (instalá reportlab).")
-
-    def _generar_asistencia(self):
-        from tkinter import messagebox
-        import os
-        from reports.asistencia import grafico_asistencia_bd
-
-        ruta = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "reports", "out", "asistencia.png"
-        )
-
+        # En tu tabla, valores[0] es id_turno ✔️
         try:
-            # Usar los mismos datos de Database
-            from data.database import Database
-            db_config = Database()
-            
-            png = grafico_asistencia_bd(
-                ruta,
-                host=db_config.host,
-                user=db_config.user,
-                password=db_config.password,
-                database=db_config.database,
-                port=db_config.port,
-                tipo="pie"
-            )
+            id_turno = int(valores[0])
+        except:
+            messagebox.showerror("Error", "No pude leer el ID del turno.")
+            return
 
-            messagebox.showinfo("Reporte listo", f"Gráfico generado en:\n{png}")
+        # Import tardío para no romper nada
+        from ..controllers.recetas_controller import RecetasController
+        ctrl = RecetasController()
 
-            try:
-                os.startfile(png)  # abrir en Windows
-            except Exception:
-                pass
+        # Ver receta existente asociada al turno
+        id_receta = ctrl.id_receta_de_turno(id_turno)
+        if not id_receta:
+            messagebox.showerror("Sin receta", "Este turno no tiene receta registrada.")
+            return
 
-        except Exception as e:
-            messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")
+        # Elegir destino del PDF
+        from tkinter import filedialog
+        archivo = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            initialfile=f"receta_{id_receta}.pdf",
+            filetypes=[("PDF", "*.pdf")]
+        )
+        if not archivo:
+            return
 
-    
+        # Generar PDF
+        ok = ctrl.generar_pdf(id_receta, archivo)
+        if ok:
+            messagebox.showinfo("Éxito", f"Receta #{id_receta} generada:\n{archivo}")
+        else:
+            messagebox.showerror("Error", "Fallo al generar el PDF (instalá reportlab).")
+
     def _refresh(self):
         """Recarga la lista de turnos según los filtros seleccionados"""
         for item in self.tree.get_children():

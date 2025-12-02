@@ -4,6 +4,8 @@ instalar:
 pip install mysql-connector-python
 pip install reportlab
 pip install matplotlib
+pip install tkcalendar
+
 
 #crear la base de datos
 ejecutar el script hospital_dp_tpdao_create.sql

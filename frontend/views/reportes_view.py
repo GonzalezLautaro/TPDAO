@@ -1,6 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
+import sys
+
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if BASE not in sys.path:
+    sys.path.insert(0, BASE)
+
+from data.database import Database
+from frontend.dialogs.filtro_fechas_dialog import FiltrFechasDialog
+from frontend.dialogs.ventana_reporte_dialog import VentanaReporteDialog
 
 
 class ReportesView(ttk.Frame):
@@ -65,13 +74,92 @@ class ReportesView(ttk.Frame):
         pass
 
     def _pacientes_atendidos_rango(self):
-        # TODO: Implementar
-        pass
+        """Abre diálogo para filtrar por fechas"""
+        FiltrFechasDialog(self, self._generar_reporte_pacientes)
+
+    def _generar_reporte_pacientes(self, fecha_inicio, fecha_fin):
+        """Genera el reporte con las fechas seleccionadas"""
+        try:
+            db = Database()
+            if not db.conectar():
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+
+            reporte = self._obtener_datos_reporte(db, fecha_inicio, fecha_fin)
+            db.desconectar()
+
+            if reporte['total_general'] == 0:
+                messagebox.showinfo("Sin datos", "No hay pacientes atendidos en ese rango")
+                return
+
+            VentanaReporteDialog(self, reporte, fecha_inicio, fecha_fin)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar reporte: {e}")
+
+    def _obtener_datos_reporte(self, db, fecha_inicio, fecha_fin):
+        """Obtiene datos desde BD"""
+        query = """
+        SELECT 
+            t.fecha,
+            COUNT(DISTINCT t.id_paciente) AS total_pacientes_dia,
+            m.matricula,
+            CONCAT(m.nombre, ' ', m.apellido) AS medico,
+            e.nombre AS especialidad,
+            COUNT(DISTINCT t.id_paciente) AS pacientes_por_medico
+        FROM Turno t
+        JOIN Medico m ON t.matricula = m.matricula
+        JOIN Medico_especialidad me ON m.matricula = me.matricula
+        JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+        WHERE t.estado = 'Atendido' 
+            AND t.fecha BETWEEN %s AND %s
+        GROUP BY t.fecha, m.matricula, e.id_especialidad
+        ORDER BY t.fecha DESC, m.nombre
+        """
+
+        resultados = db.obtener_registros(query, (fecha_inicio, fecha_fin))
+        return self._procesar_reporte(resultados, fecha_inicio, fecha_fin)
+
+    @staticmethod
+    def _procesar_reporte(resultados, fecha_inicio, fecha_fin):
+        """Procesa los resultados en estructura legible"""
+        reporte = {
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'total_general': 0,
+            'por_fecha': {},
+            'por_medico': {},
+            'por_especialidad': {}
+        }
+
+        if not resultados:
+            return reporte
+
+        for fila in resultados:
+            fecha = str(fila['fecha'])
+            medico = fila['medico']
+            especialidad = fila['especialidad']
+            pacientes = fila['pacientes_por_medico']
+
+            reporte['total_general'] += pacientes
+
+            if fecha not in reporte['por_fecha']:
+                reporte['por_fecha'][fecha] = {'total': 0, 'detalles': []}
+            reporte['por_fecha'][fecha]['total'] += pacientes
+            reporte['por_fecha'][fecha]['detalles'].append({
+                'medico': medico,
+                'especialidad': especialidad,
+                'pacientes': pacientes
+            })
+
+            reporte['por_medico'][medico] = reporte['por_medico'].get(medico, 0) + pacientes
+            reporte['por_especialidad'][especialidad] = reporte['por_especialidad'].get(especialidad, 0) + pacientes
+
+        return reporte
 
     def _grafico_asistencia(self):
         """Genera el gráfico de asistencia vs inasistencia"""
         from reports.asistencia import grafico_asistencia_bd
-        from data.database import Database
 
         ruta = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -79,7 +167,6 @@ class ReportesView(ttk.Frame):
         )
 
         try:
-            # Usar los mismos datos de Database
             db_config = Database()
             
             png = grafico_asistencia_bd(
@@ -95,7 +182,7 @@ class ReportesView(ttk.Frame):
             messagebox.showinfo("Reporte listo", f"Gráfico generado en:\n{png}")
 
             try:
-                os.startfile(png)  # abrir en Windows
+                os.startfile(png)
             except Exception:
                 pass
 

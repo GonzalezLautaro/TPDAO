@@ -16,7 +16,7 @@ class Database:
             self.host = "127.0.0.1"
             self.port = 3306
             self.user = "root"
-            self.password = "123456"  # ← CAMBIAR AQUÍ || si no tienes contraseña, dejar vacío: self.password = ""
+            self.password = "vleksel17db"  # ← CAMBIAR AQUÍ || si no tienes contraseña, dejar vacío: self.password = ""
             self.database = "hospital_db"
             self._initialized = True
     

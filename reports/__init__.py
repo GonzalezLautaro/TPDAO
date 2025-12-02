@@ -1,5 +1,8 @@
 ﻿from .turnos import listado_turnos_por_medico, listado_turnos_por_especialidad
 from .periodos import contar_turnos_por_periodo, reporte_turnos_por_periodo_text
+from .asistencia import grafico_asistencia_bd
+
+
 from .exports import (
     guardar_reporte_a_archivo,
     export_turnos_to_csv,
@@ -25,4 +28,6 @@ __all__ = [
     "calcular_asistencia",
     "reporte_asistencia_text",
     "generar_grafico_asistencia",
+    "grafico_asistencia_bd",
+
 ]

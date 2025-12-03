@@ -22,9 +22,17 @@ class Database:
             self.__host = "127.0.0.1"
             self.__port = 3306
             self.__user = "root"
-            self.__password = "root"
+            self.__password = ""  # Cambiar según configuración
             self.__database = "hospital_db"
+            self.__last_insert_id = None
             Database.__inicializado = True
+    
+    @classmethod
+    def obtener_instancia(cls):
+        """Obtiene la única instancia de Database (método alternativo)"""
+        if cls.__instancia is None:
+            cls.__instancia = cls()
+        return cls.__instancia
     
     def conectar(self, config_str: str) -> bool:
         """
@@ -65,7 +73,6 @@ class Database:
             cursor.close()
             return resultado
         except Error as e:
-            # ✅ CAMBIAR: ✗ → [ERROR]
             print(f"[ERROR] {e}")
             return None
     
@@ -91,12 +98,34 @@ class Database:
             cursor = self.__connection.cursor()
             cursor.execute(query, params)
             self.__connection.commit()
+            self.__last_insert_id = cursor.lastrowid
             cursor.close()
             return True
         except Error as e:
-            # ✅ CAMBIAR: ✗ → [ERROR]
             print(f"[ERROR] {e}")
             return False
+    
+    def ejecutar_consulta(self, query: str, params: tuple = None):
+        """Ejecuta una consulta (alias de ejecutar_parametrizado para compatibilidad)"""
+        if params:
+            resultado = self.ejecutar_parametrizado(query, params)
+            return 1 if resultado else 0
+        else:
+            try:
+                cursor = self.__connection.cursor()
+                cursor.execute(query)
+                self.__connection.commit()
+                self.__last_insert_id = cursor.lastrowid
+                affected_rows = cursor.rowcount
+                cursor.close()
+                return affected_rows
+            except Error as e:
+                print(f"[ERROR] {e}")
+                return None
+    
+    def get_last_insert_id(self):
+        """Retorna el ID del último registro insertado"""
+        return self.__last_insert_id if self.__last_insert_id else 0
     
     def desconectar(self) -> None:
         """Cierra la conexión"""

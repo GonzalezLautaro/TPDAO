@@ -129,8 +129,9 @@ class ProgramarTurnoDialog:
                 key = turno['id_turno']
                 self.turnos_dict[key] = turno
                 horario = f"{turno['hora_inicio']} - {turno['hora_fin']}"
+                consultorio = turno.get('consultorio_numero', turno.get('consultorio', 'N/A'))
                 self.tree.insert("", "end", text=key, values=(
-                    turno['consultorio'],
+                    consultorio,
                     turno['fecha'],
                     horario
                 ))

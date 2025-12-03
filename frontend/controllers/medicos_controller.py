@@ -97,3 +97,8 @@ class MedicosController:
             return False
         finally:
             self.__db.desconectar()
+    
+    def dar_de_baja(self, matricula: int):
+        """Da de baja un médico (alias para compatibilidad)"""
+        ok = self.eliminar_medico(matricula)
+        return (ok, "Médico dado de baja correctamente") if ok else (False, "No se pudo dar de baja al médico")

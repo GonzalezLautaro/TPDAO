@@ -61,7 +61,7 @@ def cargar_pacientes_bd() -> list:
         return []
     
     try:
-        pacientes = db.obtener_registros("SELECT id_paciente, nombre, apellido FROM Paciente WHERE activo = TRUE ORDER BY nombre, apellido")
+        pacientes = db.obtener_registros("SELECT id_paciente, nombre, apellido FROM Paciente WHERE activo = 1 ORDER BY nombre, apellido")
         db.desconectar()
         return pacientes
     except Exception as e:

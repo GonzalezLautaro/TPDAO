@@ -109,3 +109,41 @@ class PacientesController:
             return False
         finally:
             self.__db.desconectar()
+    
+    def obtener_historial(self, id_paciente):
+        """Obtiene el historial clínico de un paciente"""
+        if not self.__db.conectar("127.0.0.1:3306/hospital_db"):
+            return []
+        
+        try:
+            id_pac = int(id_paciente)
+            
+            # Query según estructura real de la BD
+            query = """
+            SELECT 
+                h.id_historial,
+                h.diagnostico,
+                h.tratamiento,
+                h.notas,
+                h.observaciones,
+                h.fecha_registro,
+                t.fecha,
+                t.hora_inicio,
+                CONCAT(m.nombre, ' ', m.apellido) as medico
+            FROM Historial_clinico h
+            JOIN Turno t ON h.id_turno = t.id_turno
+            JOIN Medico m ON t.matricula = m.matricula
+            WHERE h.id_paciente = %s
+            ORDER BY h.fecha_registro DESC
+            """
+            
+            historiales = self.__db.obtener_registros(query, (id_pac,))
+            return historiales if historiales else []
+        
+        except Exception as e:
+            print(f"[ERROR] Error al obtener historial: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+        finally:
+            self.__db.desconectar()

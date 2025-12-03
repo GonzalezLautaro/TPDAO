@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import traceback
 import sys
 import os
@@ -43,7 +43,6 @@ class MainWindow(tk.Tk):
         
         # Notebook (tabs)
         try:
-            from tkinter import ttk
             self.notebook = ttk.Notebook(self)
             self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
             
@@ -66,7 +65,6 @@ class MainWindow(tk.Tk):
         except Exception as e:
             print(f"[ERROR] Error al cargar tab Turnos: {str(e)}")
             traceback.print_exc()
-            # No lanzar excepción, solo mostrar en consola
     
     def _agregar_tab_pacientes(self):
         """Agrega tab de pacientes"""
@@ -101,7 +99,6 @@ class MainWindow(tk.Tk):
     def _configurar_estilo(self):
         """Configura el estilo de la aplicación"""
         try:
-            from tkinter import ttk
             style = ttk.Style()
             style.theme_use('clam')
             return style

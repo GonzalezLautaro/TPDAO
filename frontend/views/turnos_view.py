@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import date
 from ..controllers.turno_controller import TurnoController
 from ..dialogs.programar_turno_dialog import ProgramarTurnoDialog
+from ..dialogs.atender_turno_dialog import AtenderTurnoDialog
 
 
 class TurnosView(ttk.Frame):
@@ -11,6 +13,7 @@ class TurnosView(ttk.Frame):
         super().__init__(parent, padding=12)
         self.ctrl = TurnoController()
         
+<<<<<<< HEAD
         # Frame superior con título y botones
         top_frame = ttk.Frame(self)
         top_frame.pack(fill=tk.X, pady=(0, 10))
@@ -43,40 +46,142 @@ class TurnosView(ttk.Frame):
         self.tree.column("fecha", width=100)
         self.tree.column("horario", width=100)
         self.tree.column("estado", width=80)
+=======
+        # Frame superior con botones
+        top_frame = ttk.Frame(self)
+        top_frame.pack(fill="x", pady=(0, 10))
         
-        self.tree.pack(fill=tk.BOTH, expand=True, pady=10)
+        ttk.Button(top_frame, text="➕ Programar Turno", command=self._programar_turno).pack(side="left")
+        ttk.Button(top_frame, text="🔄 Refrescar", command=self._refresh).pack(side="left", padx=5)
+        ttk.Button(top_frame, text="🖨 Imprimir Receta", command=self._imprimir_receta).pack(side="left", padx=5)
         
-        # Menú contextual
-        self.menu_contextual = tk.Menu(self, tearoff=0)
-        self.menu_contextual.add_command(label="Marcar como Atendido", command=lambda: self._cambiar_estado("Atendido"))
-        self.menu_contextual.add_command(label="Cancelar Turno", command=lambda: self._cambiar_estado("Cancelado"))
-        self.tree.bind("<Button-3>", self._mostrar_menu)
+        # Frame de filtros por FECHA (primer nivel)
+        filtro_fecha_frame = ttk.LabelFrame(self, text="Filtrar por Fecha:", padding=8)
+        filtro_fecha_frame.pack(fill="x", pady=(0, 5))
+        
+        self.filtro_fecha_var = tk.StringVar(value="hoy")
+        
+        filtros_fecha = [
+            ("hoy", "📅 Hoy"),
+            ("proximos", "📆 Próximos"),
+            ("todos", "📋 Todos")
+        ]
+        
+        for valor, texto in filtros_fecha:
+            ttk.Radiobutton(
+                filtro_fecha_frame, 
+                text=texto, 
+                variable=self.filtro_fecha_var, 
+                value=valor,
+                command=self._refresh
+            ).pack(side="left", padx=8)
+        
+        # Frame de filtros por ESTADO (segundo nivel)
+        filtro_estado_frame = ttk.LabelFrame(self, text="Filtrar por Estado:", padding=8)
+        filtro_estado_frame.pack(fill="x", pady=(0, 10))
+        
+        self.filtro_estado_var = tk.StringVar(value="programados")
+        
+        filtros_estado = [
+            ("todos_estados", "📋 Todos"),
+            ("programados", "✓ Programados"),
+            ("atendidos", "✅ Atendidos"),
+            ("cancelados", "❌ Cancelados"),
+            ("inasistencia", "⚠️ Inasistencia")
+        ]
+        
+        for valor, texto in filtros_estado:
+            ttk.Radiobutton(
+                filtro_estado_frame, 
+                text=texto, 
+                variable=self.filtro_estado_var, 
+                value=valor,
+                command=self._refresh
+            ).pack(side="left", padx=8)
+        
+        # Tabla de turnos
+        tabla_frame = ttk.LabelFrame(self, text="Turnos")
+        tabla_frame.pack(fill="both", expand=True)
+        
+        # Definir columnas INCLUYENDO especialidad
+        columns = ("ID", "Paciente", "Médico", "Consult.", "Especialidad", "Fecha", "Horario", "Estado", "Acciones")
+        self.tree = ttk.Treeview(self, columns=columns, show="headings", height=15)
+        
+        # Configurar encabezados
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Paciente", text="Paciente")
+        self.tree.heading("Médico", text="Médico")
+        self.tree.heading("Consult.", text="Consult.")
+        self.tree.heading("Especialidad", text="Especialidad")
+        self.tree.heading("Fecha", text="Fecha")
+        self.tree.heading("Horario", text="Horario")
+        self.tree.heading("Estado", text="Estado")
+        self.tree.heading("Acciones", text="Acciones")
+        
+        # Configurar anchos
+        self.tree.column("ID", width=50, anchor="center")
+        self.tree.column("Paciente", width=140)
+        self.tree.column("Médico", width=140)
+        self.tree.column("Consult.", width=60, anchor="center")
+        self.tree.column("Especialidad", width=120)
+        self.tree.column("Fecha", width=90, anchor="center")
+        self.tree.column("Horario", width=120, anchor="center")
+        self.tree.column("Estado", width=90, anchor="center")
+        self.tree.column("Acciones", width=180)
+>>>>>>> 4056e95b854499208088982197d9157d69b3a4c0
+        
+        scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind para clicks
+        self.tree.bind("<Button-1>", self._on_tree_click)
         
         # Cargar datos iniciales
         self._refresh()
     
     def _refresh(self):
-        """Recarga la lista de turnos programados"""
-        try:
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+        """Recarga la lista de turnos según los filtros seleccionados"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        filtro_fecha = self.filtro_fecha_var.get()
+        filtro_estado = self.filtro_estado_var.get()
+        
+        turnos = self.ctrl.obtener_turnos_con_doble_filtro(filtro_fecha, filtro_estado)
+        
+        for t in turnos:
+            # Verificar si el turno ya pasó (fecha anterior a hoy)
+            try:
+                fecha_turno = date.fromisoformat(str(t['fecha']))
+                turno_pasado = fecha_turno < date.today()
+            except:
+                turno_pasado = False
             
-            turnos = self.ctrl.obtener_turnos_programados()
+            # Determinar texto de acciones según estado y si ya pasó
+            if turno_pasado or t['estado'] in ['Atendido', 'Cancelado', 'Inasistencia']:
+                # Turnos pasados, atendidos, cancelados o inasistencia: sin acciones
+                acciones = "— | — | —"
+            elif t['estado'] == 'Programado':
+                acciones = "✓ Atender | ✕ Cancelar | ⚠ No Asistió"
+            else:
+                acciones = "— | — | —"
             
-            for t in turnos:
-                horario = f"{t['hora_inicio']} - {t['hora_fin']}"
-                # ✅ USAR id_turno, NO id
-                self.tree.insert("", "end", values=(
-                    t['id_turno'],
-                    t.get('paciente', '---'),
-                    t['medico'],
-                    t['consultorio'],
-                    t['fecha'],
-                    horario,
-                    t['estado']
-                ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar turnos: {str(e)}")
+            especialidad = t.get('especialidad', 'N/A') or 'Sin asignar'
+            
+            self.tree.insert("", "end", values=(
+                t["id_turno"],
+                t["paciente"],
+                t["medico"],
+                t["consultorio"],
+                especialidad,
+                t["fecha"],
+                f"{t['hora_inicio']} - {t['hora_fin']}",
+                t["estado"],
+                acciones
+            ))
     
     def _programar_turno(self):
         """Abre el diálogo para programar un nuevo turno"""
@@ -87,39 +192,169 @@ class TurnosView(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al abrir diálogo: {str(e)}")
     
-    def _mostrar_menu(self, event):
-        """Muestra menú contextual"""
-        sel = self.tree.selection()
-        if sel:
-            try:
-                self.menu_contextual.tk_popup(event.x_root, event.y_root)
-            finally:
-                self.menu_contextual.grab_release()
-    
-    def _cambiar_estado(self, nuevo_estado):
-        """Cambia el estado de un turno seleccionado"""
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showwarning("Advertencia", "Selecciona un turno")
-            return
-        
+    def _on_tree_click(self, event):
+        """Maneja clicks en la tabla"""
         try:
-            # ✅ OBTENER id_turno DE LA PRIMERA COLUMNA
-            id_turno = self.tree.item(sel[0])["values"][0]
+            item = self.tree.identify("item", event.x, event.y)
+            if not item:
+                return
             
-            if nuevo_estado == "Atendido":
-                if self.ctrl.atender_turno(id_turno):
-                    messagebox.showinfo("Éxito", "Turno marcado como atendido")
-                    self._refresh()
-                else:
-                    messagebox.showerror("Error", "No se pudo actualizar el turno")
+            # Detectar columna clickeada
+            col_num = 0
+            col_x = 0
             
-            elif nuevo_estado == "Cancelado":
-                if self.ctrl.cancelar_turno(id_turno):
-                    messagebox.showinfo("Éxito", "Turno cancelado")
-                    self._refresh()
+            columns = ["ID", "Paciente", "Médico", "Consult.", "Especialidad", "Fecha", "Horario", "Estado", "Acciones"]
+            for i, col in enumerate(columns):
+                col_width = self.tree.column(col, "width")
+                if event.x < col_x + col_width:
+                    col_num = i
+                    break
+                col_x += col_width
+            
+            # Si es la columna de acciones (columna 8)
+            if col_num == 8:
+                valores = self.tree.item(item)["values"]
+                id_turno = valores[0]
+                paciente = valores[1]
+                medico = valores[2]
+                consultorio = valores[3]
+                especialidad = valores[4]
+                fecha = valores[5]
+                horario = valores[6]
+                estado = valores[7]
+                
+                # Verificar si el turno ya pasó
+                try:
+                    fecha_turno = date.fromisoformat(str(fecha))
+                    turno_pasado = fecha_turno < date.today()
+                except:
+                    turno_pasado = False
+                
+                # Si el turno ya pasó, o está Atendido, Cancelado o Inasistencia, no hacer nada
+                if turno_pasado or estado in ['Atendido', 'Cancelado', 'Inasistencia']:
+                    return
+                
+                # Determinar ancho de la columna de acciones
+                acciones_col_width = self.tree.column("Acciones", "width")
+                acciones_col_x = col_x
+                
+                # Dividir en tres partes: Atender | Cancelar | No Asistió
+                tercio = acciones_col_width / 3
+                
+                turno_data = {
+                    "id": id_turno,
+                    "paciente": paciente,
+                    "medico": medico,
+                    "consultorio": consultorio,
+                    "fecha": fecha,
+                    "horario": horario,
+                    "estado": estado
+                }
+                
+                if event.x < acciones_col_x + tercio:
+                    # Atender
+                    if estado == "Programado":
+                        self._atender_turno(turno_data)
+                    else:
+                        messagebox.showinfo("Información", f"Este turno ya está en estado: {estado}")
+                
+                elif event.x < acciones_col_x + (tercio * 2):
+                    # Cancelar
+                    self._cancelar_turno(id_turno, paciente, estado)
+                
                 else:
-                    messagebox.showerror("Error", "No se pudo cancelar el turno")
+                    # No Asistió
+                    self._marcar_inasistencia(id_turno, paciente, estado)
         
         except Exception as e:
-            messagebox.showerror("Error", f"Error: {str(e)}")
+            print(f"[ERROR] Error en click: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _atender_turno(self, turno_data):
+        """Abre el diálogo para atender el turno"""
+        dialog = AtenderTurnoDialog(self.winfo_toplevel(), turno_data)
+        self.winfo_toplevel().wait_window(dialog.window)
+        self._refresh()
+    
+    def _cancelar_turno(self, id_turno, paciente, estado):
+        """Cancela un turno"""
+        if estado == "Atendido":
+            messagebox.showwarning("Advertencia", "No se puede cancelar un turno ya atendido")
+            return
+        
+        respuesta = messagebox.askyesno(
+            "Confirmar",
+            f"¿Deseas cancelar el turno de {paciente}?"
+        )
+        
+        if respuesta:
+            ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Cancelado")
+            if ok:
+                messagebox.showinfo("Éxito", "✓ Turno cancelado correctamente")
+                self._refresh()
+            else:
+                messagebox.showerror("Error", msg)
+    
+    def _marcar_inasistencia(self, id_turno, paciente, estado):
+        """Marca un turno como inasistencia"""
+        if estado == "Atendido":
+            messagebox.showwarning("Advertencia", "No se puede marcar como inasistencia un turno ya atendido")
+            return
+        
+        respuesta = messagebox.askyesno(
+            "Confirmar",
+            f"¿Marcar como 'No Asistió' el turno de {paciente}?"
+        )
+        
+        if respuesta:
+            ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Inasistencia")
+            if ok:
+                messagebox.showinfo("Éxito", "✓ Turno marcado como inasistencia")
+                self._refresh()
+            else:
+                messagebox.showerror("Error", msg)
+
+    def _imprimir_receta(self):
+        """Genera PDF de una receta ya guardada en BD"""
+        
+        sel = self.tree.focus()
+        if not sel:
+            messagebox.showerror("Error", "Seleccioná un turno.")
+            return
+
+        valores = self.tree.item(sel)["values"]
+
+        # En tu tabla, valores[0] es id_turno ✔️
+        try:
+            id_turno = int(valores[0])
+        except:
+            messagebox.showerror("Error", "No pude leer el ID del turno.")
+            return
+
+        # Import tardío para no romper nada
+        from ..controllers.recetas_controller import RecetasController
+        ctrl = RecetasController()
+
+        # Ver receta existente asociada al turno
+        id_receta = ctrl.id_receta_de_turno(id_turno)
+        if not id_receta:
+            messagebox.showerror("Sin receta", "Este turno no tiene receta registrada.")
+            return
+
+        # Elegir destino del PDF
+        from tkinter import filedialog
+        archivo = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            initialfile=f"receta_{id_receta}.pdf",
+            filetypes=[("PDF", "*.pdf")]
+        )
+        if not archivo:
+            return
+
+        # Generar PDF
+        ok = ctrl.generar_pdf(id_receta, archivo)
+        if ok:
+            messagebox.showinfo("Éxito", f"Receta #{id_receta} generada:\n{archivo}")
+        else:
+            messagebox.showerror("Error", "Fallo al generar el PDF (instalá reportlab).")

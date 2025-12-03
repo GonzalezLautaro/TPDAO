@@ -55,10 +55,10 @@ class VerHistorialDialog:
         for h in historial:
             self.tree.insert("", "end", values=(
                 str(h['fecha']),
-                str(h['hora_inicio']) if h['hora_inicio'] else "",
+                str(h['hora_inicio']) if h.get('hora_inicio') else "",
                 h['medico'],
-                h['tratamiento'] if h['tratamiento'] else "---",
-                h['observaciones'] if h['observaciones'] else "---"
+                h['tratamiento'] if h.get('tratamiento') else "---",
+                h['observaciones'] if h.get('observaciones') else "---"
             ))
         
         # Frame de botones

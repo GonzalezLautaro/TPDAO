@@ -125,7 +125,7 @@ def generar_turnos_desde_agendas(fecha_inicio: date = None, dias_adelante: int =
                         if hora_fin_turno > hora_fin_agenda:
                             break
                         
-                        # ✅ CAMBIAR: ejecutar_consulta → ejecutar_parametrizado
+                        # Ejecutar la query parametrizada
                         try:
                             resultado = db.ejecutar_parametrizado(
                                 """INSERT INTO Turno (matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado)
@@ -134,14 +134,14 @@ def generar_turnos_desde_agendas(fecha_inicio: date = None, dias_adelante: int =
                             )
                             
                             if resultado:
-                                print(f"✓ Turno creado: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
+                                print(f"[OK] Turno creado: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
                                 total_turnos_creados += 1
                             else:
-                                print(f"✗ Error al crear turno: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
+                                print(f"[ERROR] Error al crear turno: {fecha_actual} {hora_inicio_turno}-{hora_fin_turno}")
                                 total_errores += 1
                         
                         except Exception as e:
-                            print(f"✗ Error: {str(e)}")
+                            print(f"[ERROR] Error: {str(e)}")
                             total_errores += 1
                         
                         # Avanzar 30 minutos
@@ -153,8 +153,8 @@ def generar_turnos_desde_agendas(fecha_inicio: date = None, dias_adelante: int =
         print(f"\n{'='*80}")
         print(f"RESUMEN")
         print(f"{'='*80}")
-        print(f"✓ Turnos creados: {total_turnos_creados}")
-        print(f"✗ Errores: {total_errores}")
+        print(f"[OK] Turnos creados: {total_turnos_creados}")
+        print(f"[ERROR] Errores: {total_errores}")
         print(f"{'='*80}\n")
         
         db.desconectar()

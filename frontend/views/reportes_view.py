@@ -275,8 +275,10 @@ class ReportesView(ttk.Frame):
         )
 
         try:
+            # Obtener configuración de Database
             db_config = Database()
             
+            # Usar los valores de configuración de Database
             png = grafico_asistencia_bd(
                 ruta,
                 host=db_config.host,
@@ -296,6 +298,8 @@ class ReportesView(ttk.Frame):
 
         except Exception as e:
             messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")
+            import traceback
+            traceback.print_exc()
     
     def _pacientes_atendidos_rango(self):
         """Abre diálogo para filtrar por fechas"""
@@ -305,7 +309,7 @@ class ReportesView(ttk.Frame):
         """Genera el reporte con las fechas seleccionadas"""
         try:
             db = Database()
-            if not db.conectar("127.0.0.1:3306/hospital_db"):
+            if not db.conectar():
                 messagebox.showerror("Error", "No se pudo conectar a la BD")
                 return
 
@@ -452,14 +456,17 @@ class ReportesView(ttk.Frame):
 
         
         try:
-            # Usar configuración estándar
+            # Obtener configuración de Database
+            db_config = Database()
+            
+            # Usar los valores de configuración de Database
             png = grafico_asistencia_bd(
                 ruta,
-                host="127.0.0.1",
-                user="root",
-                password="",
-                database="hospital_db",
-                port=3306,
+                host=db_config.host,
+                user=db_config.user,
+                password=db_config.password,
+                database=db_config.database,
+                port=db_config.port,
                 tipo="pie"
             )
             messagebox.showinfo("Reporte listo", f"Gráfico generado en:\n{png}")
@@ -471,4 +478,4 @@ class ReportesView(ttk.Frame):
 
         except Exception as e:
             messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")
-        
+

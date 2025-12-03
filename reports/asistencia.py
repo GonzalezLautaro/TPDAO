@@ -52,7 +52,7 @@ def grafico_asistencia_bd(
     *,
     host: str = "127.0.0.1",
     user: str = "root",
-    password: str = "vleksel17db",
+    password: str = "",
     database: str = "hospital_db",
     port: int = 3306,
     tipo: str = "pie",   # "pie" o "bar"

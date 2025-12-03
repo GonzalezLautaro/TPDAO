@@ -44,7 +44,7 @@ class PacientesView(ttk.Frame):
         )
         
         headers = [
-            ("id", "ID", 50),
+            ("id", "Nro Paciente", 80),
             ("nombre", "Nombre", 120),
             ("apellido", "Apellido", 120),
             ("telefono", "Teléfono", 100),

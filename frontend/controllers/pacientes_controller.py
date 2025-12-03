@@ -14,7 +14,7 @@ class PacientesController:
         self.gestor = GestorPaciente()
 
     def crear(self, nro, nombre, apellido, tel, nacimiento, direccion):
-        """Crea un nuevo paciente"""
+        """Crea un nuevo paciente y lo guarda en la BD"""
         if not nro or not nombre or not apellido:
             return False, "Faltan datos (id, nombre, apellido)"
         try:
@@ -27,8 +27,37 @@ class PacientesController:
         except Exception:
             return False, "Fecha de nacimiento inválida (YYYY-MM-DD)"
         
-        ok = self.gestor.alta_paciente(nro_int, nombre, apellido, tel, fecha_nac, direccion)
-        return (True, "Paciente creado") if ok else (False, "No se pudo crear")
+        # Guardar directamente en BD
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return False, "No se pudo conectar a la BD"
+        
+        try:
+            # Verificar si ya existe
+            query_check = "SELECT id_paciente FROM Paciente WHERE id_paciente = %s"
+            existe = db.obtener_registro(query_check, (nro_int,))
+            
+            if existe:
+                db.desconectar()
+                return False, f"Ya existe un paciente con ID {nro_int}"
+            
+            # Insertar paciente
+            query = """
+            INSERT INTO Paciente (id_paciente, nombre, apellido, telefono, fecha_nacimiento, direccion, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            """
+            
+            resultado = db.ejecutar_consulta(query, (nro_int, nombre, apellido, tel, fecha_nac, direccion))
+            db.desconectar()
+            
+            if resultado is not None and resultado > 0:
+                return True, "Paciente creado exitosamente"
+            else:
+                return False, "No se pudo crear el paciente"
+        
+        except Exception as e:
+            db.desconectar()
+            return False, f"Error: {str(e)}"
 
     def modificar(self, id_paciente, nombre, apellido, telefono, nacimiento, direccion):
         """Modifica un paciente en la BD"""

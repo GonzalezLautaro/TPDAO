@@ -147,3 +147,6 @@ secrets.py
 *.sql
 !data/hospital_db_tpdao_create.sql
 !data/hospital_db_tpdao_inserts.sql
+
+# Archivos de reportes generados
+reports/out/

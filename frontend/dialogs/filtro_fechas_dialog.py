@@ -1,55 +1,102 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 
 
-class FiltrFechasDialog:
+class FiltrFechasDialog(tk.Toplevel):
+    """Diálogo para seleccionar rango de fechas"""
+
     def __init__(self, parent, callback):
+        super().__init__(parent)
         self.callback = callback
+        self.title("Filtrar por Fechas")
+        self.geometry("400x250")
+        self.resizable(False, False)
+        self.grab_set()
+        self._build_ui()
 
-        self.window = tk.Toplevel(parent)
-        self.window.title("Filtrar por Fechas")
-        self.window.geometry("350x250")
-        self.window.resizable(False, False)
-        self.window.grab_set()
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=20)
+        frame.pack(fill="both", expand=True)
 
-        frm = ttk.Frame(self.window, padding=20)
-        frm.pack(fill="both", expand=True)
-
-        # ---- Fecha Inicio ----
-        ttk.Label(frm, text="Fecha Inicio:").pack(anchor="w")
-        self.fecha_inicio = DateEntry(
-    frm, width=18, date_pattern="y-mm-dd",
-    state="normal", showweeknumbers=False
-)
-
-
-        self.fecha_inicio.pack(pady=5)
+        # Fecha Inicio
+        ttk.Label(frame, text="Fecha Inicio:", font=("Arial", 10, "bold")).pack(anchor="w", pady=(10, 5))
+        self.entrada_inicio = DateEntry(
+            frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='y-mm-dd',
+            state="normal",
+            showweeknumbers=False,
+            selectmode='day'
+        )
+        self.entrada_inicio.pack(anchor="w", pady=(0, 15))
 
         # Forzar foco correctamente (FIX DEL BUG)
-        self.window.after(150, lambda: self.fecha_inicio.focus_force())
+        self.after(150, lambda: self.entrada_inicio.focus_force())
 
-        # ---- Fecha Fin ----
-        ttk.Label(frm, text="Fecha Fin:").pack(anchor="w", pady=(15, 0))
-        self.fecha_fin = DateEntry(
-    frm, width=18, date_pattern="y-mm-dd",
-    state="normal", showweeknumbers=False
-)
+        # Fecha Fin
+        ttk.Label(frame, text="Fecha Fin:", font=("Arial", 10, "bold")).pack(anchor="w", pady=(10, 5))
+        self.entrada_fin = DateEntry(
+            frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='y-mm-dd',
+            state="normal",
+            showweeknumbers=False,
+            selectmode='day'
+        )
+        self.entrada_fin.pack(anchor="w", pady=(0, 20))
 
-        self.fecha_fin.pack(pady=5)
+        # Botones
+        frame_botones = ttk.Frame(frame)
+        frame_botones.pack(fill="x", pady=(20, 10))
 
-        # ---- Botones ----
-        btns = ttk.Frame(frm)
-        btns.pack(pady=25)
+        # Botón Cancelar
+        btn_cancelar = tk.Button(
+            frame_botones,
+            text="Cancelar",
+            command=self.destroy,
+            width=12,
+            height=2,
+            font=("Arial", 10),
+            bg="#f0f0f0",
+            activebackground="#e0e0e0",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2"
+        )
+        btn_cancelar.pack(side="right", padx=(10, 5), ipadx=10, ipady=5)
 
-        ttk.Button(btns, text="Cancelar", command=self.window.destroy)\
-            .pack(side="left", padx=10)
+        # Botón Generar
+        btn_generar = tk.Button(
+            frame_botones,
+            text="Generar",
+            command=self._aceptar,
+            width=12,
+            height=2,
+            font=("Arial", 10, "bold"),
+            bg="#4CAF50",
+            fg="white",
+            activebackground="#45a049",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2"
+        )
+        btn_generar.pack(side="right", padx=(5, 10), ipadx=10, ipady=5)
 
-        ttk.Button(btns, text="Generar", command=self._emitir)\
-            .pack(side="left", padx=10)
+    def _aceptar(self):
+        fecha_inicio = self.entrada_inicio.get_date()
+        fecha_fin = self.entrada_fin.get_date()
 
-    def _emitir(self):
-        f1 = self.fecha_inicio.get_date()
-        f2 = self.fecha_fin.get_date()
-        self.callback(f1, f2)
-        self.window.destroy()
+        if fecha_inicio > fecha_fin:
+            messagebox.showerror("Error", "La fecha de inicio debe ser anterior a la fecha fin")
+            return
+
+        self.destroy()
+        self.callback(fecha_inicio, fecha_fin)

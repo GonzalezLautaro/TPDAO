@@ -21,7 +21,7 @@ class ReportesView(ttk.Frame):
         # Título
         title_frame = ttk.Frame(self)
         title_frame.pack(pady=20)
-        
+
         title_label = ttk.Label(
             title_frame,
             text="Reportes",
@@ -66,12 +66,58 @@ class ReportesView(ttk.Frame):
         btn4.pack(pady=15, padx=30, fill="x", ipady=10)
 
     def _listado_turnos_medico_periodo(self):
-        # TODO: Implementar
-        pass
+        """Genera un reporte de listado de turnos por médico en un período"""
+        FiltrFechasDialog(self, self._generar_reporte_turnos_medico)
+
+    def _generar_reporte_turnos_medico(self, fecha_inicio, fecha_fin):
+        """Consulta la BD y muestra reporte de turnos por médico"""
+        try:
+            db = Database()
+            if not db.conectar():
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+
+            query = """
+            SELECT
+                CONCAT(m.nombre, ' ', m.apellido) AS medico,
+                COALESCE(
+                    (SELECT GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ')
+                     FROM Medico_especialidad me
+                     JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+                     WHERE me.matricula = m.matricula),
+                    'Sin especialidad'
+                ) AS especialidad,
+                t.fecha,
+                t.hora_inicio,
+                t.hora_fin,
+                CONCAT(p.nombre, ' ', p.apellido) AS paciente,
+                t.estado
+            FROM Turno t
+            JOIN Medico m ON t.matricula = m.matricula
+            LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
+            WHERE t.fecha BETWEEN %s AND %s
+                AND t.estado IN ('Programado', 'Atendido', 'Cancelado', 'Inasistencia')
+            ORDER BY m.apellido, m.nombre, t.fecha, t.hora_inicio
+            """
+
+            datos = db.obtener_registros(query, (fecha_inicio, fecha_fin))
+            db.desconectar()
+
+            if not datos:
+                messagebox.showinfo("Sin datos", "No hay turnos en ese rango")
+                return
+
+            # Mostrar ventana con tabla
+            from frontend.dialogs.ventana_tabla_turnos_medico import VentanaTablaTurnosMedico
+            VentanaTablaTurnosMedico(self, datos, fecha_inicio, fecha_fin)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar reporte: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _cantidad_turnos_especialidad(self):
         """Genera un reporte de cantidad de turnos por especialidad"""
-        from frontend.dialogs.filtro_fechas_dialog import FiltrFechasDialog
         FiltrFechasDialog(self, self._generar_reporte_especialidad)
 
     def _generar_reporte_especialidad(self, fecha_inicio, fecha_fin):
@@ -83,15 +129,15 @@ class ReportesView(ttk.Frame):
                 return
 
             query = """
-            SELECT 
+            SELECT
                 e.nombre AS especialidad,
                 SUM(CASE WHEN t.estado = 'Atendido'     THEN 1 ELSE 0 END) AS atendidos,
                 SUM(CASE WHEN t.estado = 'Inasistencia' THEN 1 ELSE 0 END) AS inasistencias,
                 SUM(CASE WHEN t.estado = 'Cancelado'    THEN 1 ELSE 0 END) AS cancelados,
                 SUM(CASE WHEN t.estado = 'Programado'   THEN 1 ELSE 0 END) AS programados,
-                SUM(CASE 
+                SUM(CASE
                         WHEN t.estado IN ('Atendido','Inasistencia','Cancelado','Programado')
-                        THEN 1 ELSE 0 
+                        THEN 1 ELSE 0
                     END) AS total
             FROM Turno t
             JOIN Medico m               ON m.matricula = t.matricula
@@ -116,70 +162,6 @@ class ReportesView(ttk.Frame):
 
         except Exception as e:
             messagebox.showerror("Error", f"Error al generar reporte: {e}")
-
-
-    def _mostrar_tabla_especialidades(self, filas, fecha_inicio, fecha_fin):
-        """Muestra una ventana con la tabla (Treeview) y totales al pie"""
-        win = tk.Toplevel(self)
-        win.title("Turnos por especialidad")
-        win.geometry("900x500")
-
-        header = ttk.Label(
-            win,
-            text=f"Cantidad de turnos por especialidad – {fecha_inicio} a {fecha_fin}",
-            font=("Arial", 12, "bold")
-        )
-        header.pack(pady=10)
-
-        cols = ("especialidad", "total", "atendidos", "inasistencias", "cancelados", "programados")
-        tree = ttk.Treeview(win, columns=cols, show="headings", height=18)
-        widths = [280, 90, 100, 110, 100, 110]
-        headers = ["Especialidad", "Total", "Atendidos", "Inasist.", "Cancelados", "Programados"]
-
-        for c, w, h in zip(cols, widths, headers):
-            tree.heading(c, text=h)
-            tree.column(c, width=w, anchor="center")
-
-        # cargar filas y acumular totales
-        tot_total = tot_at = tot_in = tot_ca = tot_pr = 0
-        for f in filas:
-            row = (
-                f["especialidad"],
-                f["total"] or 0,
-                f["atendidos"] or 0,
-                f["inasistencias"] or 0,
-                f["cancelados"] or 0,
-                f["programados"] or 0,
-            )
-            tot_total += row[1]
-            tot_at += row[2]
-            tot_in += row[3]
-            tot_ca += row[4]
-            tot_pr += row[5]
-            tree.insert("", "end", values=row)
-
-        tree.pack(fill="both", expand=True, padx=10, pady=(0, 8))
-
-        # Totales
-        footer = ttk.Frame(win)
-        footer.pack(fill="x", padx=10, pady=6)
-
-        ttk.Label(
-            footer,
-            text=(
-                f"Totales  |  Total: {tot_total}  |  "
-                f"Atendidos: {tot_at}  |  "
-                f"Inasist.: {tot_in}  |  "
-                f"Cancelados: {tot_ca}  |  "
-                f"Programados: {tot_pr}"
-            ),
-            font=("Arial", 10, "bold")
-        ).pack(side="left")
-
-        ttk.Button(footer, text="Cerrar", command=win.destroy).pack(side="right")
-
-
-
 
     def _pacientes_atendidos_rango(self):
         """Abre diálogo para filtrar por fechas"""
@@ -208,21 +190,27 @@ class ReportesView(ttk.Frame):
     def _obtener_datos_reporte(self, db, fecha_inicio, fecha_fin):
         """Obtiene datos desde BD"""
         query = """
-        SELECT 
+        SELECT
             t.fecha,
-            COUNT(DISTINCT t.id_paciente) AS total_pacientes_dia,
+            t.id_paciente,
+            p.nombre AS paciente_nombre,
+            p.apellido AS paciente_apellido,
             m.matricula,
             CONCAT(m.nombre, ' ', m.apellido) AS medico,
-            e.nombre AS especialidad,
-            COUNT(DISTINCT t.id_paciente) AS pacientes_por_medico
+            COALESCE(
+                (SELECT GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ')
+                 FROM Medico_especialidad me
+                 JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+                 WHERE me.matricula = m.matricula),
+                'Sin especialidad'
+            ) AS especialidades
         FROM Turno t
         JOIN Medico m ON t.matricula = m.matricula
-        JOIN Medico_especialidad me ON m.matricula = me.matricula
-        JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
-        WHERE t.estado = 'Atendido' 
+        LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
+        WHERE t.estado = 'Atendido'
             AND t.fecha BETWEEN %s AND %s
-        GROUP BY t.fecha, m.matricula, e.id_especialidad
-        ORDER BY t.fecha DESC, m.nombre
+            AND t.id_paciente IS NOT NULL
+        ORDER BY t.fecha DESC, m.nombre, p.apellido, p.nombre
         """
 
         resultados = db.obtener_registros(query, (fecha_inicio, fecha_fin))
@@ -243,25 +231,65 @@ class ReportesView(ttk.Frame):
         if not resultados:
             return reporte
 
+        # Conjuntos para contar pacientes únicos
+        pacientes_unicos_general = set()
+        pacientes_por_fecha = {}
+        pacientes_por_medico = {}
+        pacientes_por_especialidad = {}
+        detalles_por_fecha_medico = {}
+
         for fila in resultados:
             fecha = str(fila['fecha'])
+            id_paciente = fila['id_paciente']
             medico = fila['medico']
-            especialidad = fila['especialidad']
-            pacientes = fila['pacientes_por_medico']
+            especialidades_str = fila.get('especialidades', 'Sin especialidad')
 
-            reporte['total_general'] += pacientes
+            especialidades = [e.strip() for e in especialidades_str.split(',')] if especialidades_str else ['Sin especialidad']
 
-            if fecha not in reporte['por_fecha']:
-                reporte['por_fecha'][fecha] = {'total': 0, 'detalles': []}
-            reporte['por_fecha'][fecha]['total'] += pacientes
-            reporte['por_fecha'][fecha]['detalles'].append({
-                'medico': medico,
-                'especialidad': especialidad,
-                'pacientes': pacientes
-            })
+            pacientes_unicos_general.add(id_paciente)
 
-            reporte['por_medico'][medico] = reporte['por_medico'].get(medico, 0) + pacientes
-            reporte['por_especialidad'][especialidad] = reporte['por_especialidad'].get(especialidad, 0) + pacientes
+            if fecha not in pacientes_por_fecha:
+                pacientes_por_fecha[fecha] = set()
+                detalles_por_fecha_medico[fecha] = {}
+            pacientes_por_fecha[fecha].add(id_paciente)
+
+            if medico not in pacientes_por_medico:
+                pacientes_por_medico[medico] = set()
+            pacientes_por_medico[medico].add(id_paciente)
+
+            for especialidad in especialidades:
+                if especialidad not in pacientes_por_especialidad:
+                    pacientes_por_especialidad[especialidad] = set()
+                pacientes_por_especialidad[especialidad].add(id_paciente)
+
+            if medico not in detalles_por_fecha_medico[fecha]:
+                detalles_por_fecha_medico[fecha][medico] = {
+                    'especialidades': set(),
+                    'pacientes': set()
+                }
+            detalles_por_fecha_medico[fecha][medico]['pacientes'].add(id_paciente)
+            detalles_por_fecha_medico[fecha][medico]['especialidades'].update(especialidades)
+
+        reporte['total_general'] = len(pacientes_unicos_general)
+
+        for fecha, pacientes_set in pacientes_por_fecha.items():
+            reporte['por_fecha'][fecha] = {
+                'total': len(pacientes_set),
+                'detalles': []
+            }
+            for medico, detalle in detalles_por_fecha_medico[fecha].items():
+                especialidades_display = ', '.join(sorted(detalle['especialidades']))
+                reporte['por_fecha'][fecha]['detalles'].append({
+                    'medico': medico,
+                    'especialidad': especialidades_display,
+                    'pacientes': len(detalle['pacientes'])
+                })
+
+        for medico, pacientes_set in pacientes_por_medico.items():
+            reporte['por_medico'][medico] = len(pacientes_set)
+
+        for especialidad, pacientes_set in pacientes_por_especialidad.items():
+            reporte['por_especialidad'][especialidad] = len(pacientes_set)
 
         return reporte
 
@@ -276,7 +304,7 @@ class ReportesView(ttk.Frame):
 
         try:
             db_config = Database()
-            
+
             png = grafico_asistencia_bd(
                 ruta,
                 host=db_config.host,
@@ -296,3 +324,5 @@ class ReportesView(ttk.Frame):
 
         except Exception as e:
             messagebox.showerror("Error", f"No pude generar el gráfico:\n{e}")
+            import traceback
+            traceback.print_exc()

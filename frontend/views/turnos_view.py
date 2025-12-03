@@ -117,27 +117,28 @@ class TurnosView(ttk.Frame):
             if not item:
                 return
             
-            # Detectar columna clickeada
+            # Detectar columna clickeada - usar IDs exactos de columnas
             col_num = 0
             col_x = 0
             
-            for i, col in enumerate(["id", "paciente", "medico", "consultorio", "fecha", "horario", "estado", "acciones"]):
+            for i, col in enumerate(["ID", "Paciente", "Médico", "Consult.", "Especialidad", "Fecha", "Horario", "Estado", "Acciones"]):
                 col_width = self.tree.column(col, "width")
                 if event.x < col_x + col_width:
                     col_num = i
                     break
                 col_x += col_width
             
-            # Si es la columna de acciones (columna 7)
-            if col_num == 7:
+            # Si es la columna de acciones (columna 8)
+            if col_num == 8:
                 valores = self.tree.item(item)["values"]
                 id_turno = valores[0]
                 paciente = valores[1]
                 medico = valores[2]
                 consultorio = valores[3]
-                fecha = valores[4]
-                horario = valores[5]
-                estado = valores[6]
+                especialidad = valores[4]
+                fecha = valores[5]
+                horario = valores[6]
+                estado = valores[7]
                 
                 # Verificar si el turno ya pasó
                 try:
@@ -151,7 +152,7 @@ class TurnosView(ttk.Frame):
                     return
                 
                 # Determinar ancho de la columna de acciones
-                acciones_col_width = self.tree.column("acciones", "width")
+                acciones_col_width = self.tree.column("Acciones", "width")
                 acciones_col_x = col_x
                 
                 # Dividir en tres partes: Atender | Cancelar | No Asistió

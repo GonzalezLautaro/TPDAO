@@ -99,22 +99,29 @@ class ReportesView(ttk.Frame):
 
     def _obtener_datos_reporte(self, db, fecha_inicio, fecha_fin):
         """Obtiene datos desde BD"""
+        # Query principal: pacientes únicos por fecha y médico
         query = """
         SELECT 
             t.fecha,
-            COUNT(DISTINCT t.id_paciente) AS total_pacientes_dia,
+            t.id_paciente,
+            p.nombre AS paciente_nombre,
+            p.apellido AS paciente_apellido,
             m.matricula,
             CONCAT(m.nombre, ' ', m.apellido) AS medico,
-            e.nombre AS especialidad,
-            COUNT(DISTINCT t.id_paciente) AS pacientes_por_medico
+            COALESCE(
+                (SELECT GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ')
+                 FROM Medico_especialidad me
+                 JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+                 WHERE me.matricula = m.matricula),
+                'Sin especialidad'
+            ) AS especialidades
         FROM Turno t
         JOIN Medico m ON t.matricula = m.matricula
-        JOIN Medico_especialidad me ON m.matricula = me.matricula
-        JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+        LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
         WHERE t.estado = 'Atendido' 
             AND t.fecha BETWEEN %s AND %s
-        GROUP BY t.fecha, m.matricula, e.id_especialidad
-        ORDER BY t.fecha DESC, m.nombre
+            AND t.id_paciente IS NOT NULL
+        ORDER BY t.fecha DESC, m.nombre, p.apellido, p.nombre
         """
 
         resultados = db.obtener_registros(query, (fecha_inicio, fecha_fin))
@@ -129,31 +136,96 @@ class ReportesView(ttk.Frame):
             'total_general': 0,
             'por_fecha': {},
             'por_medico': {},
-            'por_especialidad': {}
+            'por_especialidad': {},
+            'turnos_por_especialidad': {}  # Cantidad de turnos (no pacientes únicos)
         }
 
         if not resultados:
             return reporte
 
+        # Conjuntos para contar pacientes únicos
+        pacientes_unicos_general = set()
+        pacientes_por_fecha = {}  # {fecha: set(id_paciente)}
+        pacientes_por_medico = {}  # {medico: set(id_paciente)}
+        pacientes_por_especialidad = {}  # {especialidad: set(id_paciente)}
+        
+        # Contador de turnos por especialidad (no pacientes únicos, sino cantidad de turnos)
+        turnos_por_especialidad = {}  # {especialidad: int}
+        
+        # Detalles por fecha y médico
+        detalles_por_fecha_medico = {}  # {(fecha, medico): {'especialidades': set, 'pacientes': set}}
+
         for fila in resultados:
             fecha = str(fila['fecha'])
+            id_paciente = fila['id_paciente']
             medico = fila['medico']
-            especialidad = fila['especialidad']
-            pacientes = fila['pacientes_por_medico']
+            especialidades_str = fila.get('especialidades', 'Sin especialidad')
+            
+            # Dividir especialidades (pueden venir separadas por coma)
+            especialidades = [e.strip() for e in especialidades_str.split(',')] if especialidades_str else ['Sin especialidad']
 
-            reporte['total_general'] += pacientes
+            # Agregar a pacientes únicos generales
+            pacientes_unicos_general.add(id_paciente)
 
-            if fecha not in reporte['por_fecha']:
-                reporte['por_fecha'][fecha] = {'total': 0, 'detalles': []}
-            reporte['por_fecha'][fecha]['total'] += pacientes
-            reporte['por_fecha'][fecha]['detalles'].append({
-                'medico': medico,
-                'especialidad': especialidad,
-                'pacientes': pacientes
-            })
+            # Por fecha
+            if fecha not in pacientes_por_fecha:
+                pacientes_por_fecha[fecha] = set()
+                detalles_por_fecha_medico[fecha] = {}
+            pacientes_por_fecha[fecha].add(id_paciente)
 
-            reporte['por_medico'][medico] = reporte['por_medico'].get(medico, 0) + pacientes
-            reporte['por_especialidad'][especialidad] = reporte['por_especialidad'].get(especialidad, 0) + pacientes
+            # Por médico
+            if medico not in pacientes_por_medico:
+                pacientes_por_medico[medico] = set()
+            pacientes_por_medico[medico].add(id_paciente)
+
+            # Por especialidad (pacientes únicos)
+            for especialidad in especialidades:
+                if especialidad not in pacientes_por_especialidad:
+                    pacientes_por_especialidad[especialidad] = set()
+                pacientes_por_especialidad[especialidad].add(id_paciente)
+                
+                # Contar turnos por especialidad (cada turno cuenta)
+                if especialidad not in turnos_por_especialidad:
+                    turnos_por_especialidad[especialidad] = 0
+                turnos_por_especialidad[especialidad] += 1
+
+            # Detalles por fecha y médico
+            if medico not in detalles_por_fecha_medico[fecha]:
+                detalles_por_fecha_medico[fecha][medico] = {
+                    'especialidades': set(),
+                    'pacientes': set()
+                }
+            detalles_por_fecha_medico[fecha][medico]['pacientes'].add(id_paciente)
+            detalles_por_fecha_medico[fecha][medico]['especialidades'].update(especialidades)
+
+        # Construir estructura final
+        reporte['total_general'] = len(pacientes_unicos_general)
+
+        # Por fecha
+        for fecha, pacientes_set in pacientes_por_fecha.items():
+            reporte['por_fecha'][fecha] = {
+                'total': len(pacientes_set),
+                'detalles': []
+            }
+            # Agregar detalles por médico en esa fecha
+            for medico, detalle in detalles_por_fecha_medico[fecha].items():
+                especialidades_display = ', '.join(sorted(detalle['especialidades']))
+                reporte['por_fecha'][fecha]['detalles'].append({
+                    'medico': medico,
+                    'especialidad': especialidades_display,
+                    'pacientes': len(detalle['pacientes'])
+                })
+
+        # Por médico
+        for medico, pacientes_set in pacientes_por_medico.items():
+            reporte['por_medico'][medico] = len(pacientes_set)
+
+        # Por especialidad (pacientes únicos)
+        for especialidad, pacientes_set in pacientes_por_especialidad.items():
+            reporte['por_especialidad'][especialidad] = len(pacientes_set)
+
+        # Turnos por especialidad (cantidad total de turnos)
+        reporte['turnos_por_especialidad'] = turnos_por_especialidad
 
         return reporte
 

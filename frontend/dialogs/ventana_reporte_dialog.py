@@ -28,6 +28,7 @@ class VentanaReporteDialog(tk.Toplevel):
         self._agregar_titulo(frame)
         self._agregar_total(frame)
         self._agregar_seccion(frame, "📋 Pacientes por Especialidad", self.reporte['por_especialidad'])
+        self._agregar_seccion_turnos(frame, "📊 Turnos Atendidos por Especialidad", self.reporte.get('turnos_por_especialidad', {}))
         self._agregar_seccion(frame, "👨‍⚕️ Pacientes por Médico", self.reporte['por_medico'])
         self._agregar_detalle_fechas(frame)
 
@@ -61,6 +62,24 @@ class VentanaReporteDialog(tk.Toplevel):
         if datos:
             for clave, valor in sorted(datos.items()):
                 tk.Label(parent, text=f"  • {clave}: {valor}", font=("Arial", 10)).pack(anchor="w", padx=40)
+        else:
+            tk.Label(parent, text="  Sin datos", font=("Arial", 10)).pack(anchor="w", padx=40)
+        
+        ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=10)
+
+    def _agregar_seccion_turnos(self, parent, titulo, datos):
+        """Agrega sección de turnos con formato especial"""
+        tk.Label(parent, text=titulo, font=("Arial", 11, "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        
+        if datos:
+            # Ordenar por cantidad de turnos (descendente)
+            datos_ordenados = sorted(datos.items(), key=lambda x: x[1], reverse=True)
+            for clave, valor in datos_ordenados:
+                tk.Label(
+                    parent, 
+                    text=f"  • {clave}: {valor} turnos", 
+                    font=("Arial", 10)
+                ).pack(anchor="w", padx=40)
         else:
             tk.Label(parent, text="  Sin datos", font=("Arial", 10)).pack(anchor="w", padx=40)
         

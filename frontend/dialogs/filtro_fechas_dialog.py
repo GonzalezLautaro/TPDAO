@@ -42,10 +42,41 @@ class FiltrFechasDialog(tk.Toplevel):
 
         # Botones
         frame_botones = ttk.Frame(frame)
-        frame_botones.pack(fill="x", pady=20)
+        frame_botones.pack(fill="x", pady=(20, 10))
 
-        ttk.Button(frame_botones, text="Generar", command=self._aceptar).pack(side="left", padx=5)
-        ttk.Button(frame_botones, text="Cancelar", command=self.destroy).pack(side="left", padx=5)
+        # Botón Cancelar
+        btn_cancelar = tk.Button(
+            frame_botones,
+            text="Cancelar",
+            command=self.destroy,
+            width=12,
+            height=2,
+            font=("Arial", 10),
+            bg="#f0f0f0",
+            activebackground="#e0e0e0",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2"
+        )
+        btn_cancelar.pack(side="right", padx=(10, 5), ipadx=10, ipady=5)
+
+        # Botón Generar
+        btn_generar = tk.Button(
+            frame_botones,
+            text="Generar",
+            command=self._aceptar,
+            width=12,
+            height=2,
+            font=("Arial", 10, "bold"),
+            bg="#4CAF50",
+            fg="white",
+            activebackground="#45a049",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            cursor="hand2"
+        )
+        btn_generar.pack(side="right", padx=(5, 10), ipadx=10, ipady=5)
 
     def _aceptar(self):
         fecha_inicio = self.entrada_inicio.get_date()

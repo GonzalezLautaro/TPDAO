@@ -85,11 +85,11 @@ class GestorTurno:
     
     # ========== ALTA (CREATE) ==========
     def alta_turno(self, id_paciente: int, matricula: int, id_consultorio: int,
-                   fecha: date, hora_inicio: time, hora_fin: time, 
+                   fecha: date, hora_inicio: time, hora_fin: time,
                    observaciones: str = "") -> bool:
         """
         Da de alta un nuevo turno en la base de datos
-        
+
         Args:
             id_paciente: ID del paciente
             matricula: Matrícula del médico
@@ -98,77 +98,101 @@ class GestorTurno:
             hora_inicio: Hora de inicio del turno
             hora_fin: Hora de fin del turno
             observaciones: Observaciones (opcional)
-        
+
         Returns:
             True si se creó exitosamente, False en caso contrario
         """
         db = Database()
-        
+
         if not db.conectar("127.0.0.1:3306/hospital_db"):
             print("[ERROR] No se pudo conectar a la base de datos")
             return False
-        
+
         try:
             # Verificar que el paciente existe
             query_check_paciente = "SELECT id_paciente FROM Paciente WHERE id_paciente = %s AND activo = TRUE"
             paciente = db.obtener_registro(query_check_paciente, (id_paciente,))
-            
+
             if not paciente:
                 print(f"[ERROR] Paciente con ID {id_paciente} no existe o está inactivo")
                 db.desconectar()
                 return False
-            
+
             # Verificar que el médico existe
             query_check_medico = "SELECT matricula FROM Medico WHERE matricula = %s AND activo = TRUE"
             medico = db.obtener_registro(query_check_medico, (matricula,))
-            
+
             if not medico:
                 print(f"[ERROR] Médico con matrícula {matricula} no existe o está inactivo")
                 db.desconectar()
                 return False
-            
+
             # Verificar que el consultorio existe
             query_check_consultorio = "SELECT id_consultorio FROM Consultorio WHERE id_consultorio = %s"
             consultorio = db.obtener_registro(query_check_consultorio, (id_consultorio,))
-            
+
             if not consultorio:
                 print(f"[ERROR] Consultorio con ID {id_consultorio} no existe")
                 db.desconectar()
                 return False
-            
+
             # Verificar que no existe un turno duplicado
             query_check_turno = """
-            SELECT id_turno FROM Turno 
+            SELECT id_turno FROM Turno
             WHERE id_paciente = %s AND matricula = %s AND fecha = %s AND hora_inicio = %s
             """
             turno_existe = db.obtener_registro(query_check_turno, (id_paciente, matricula, fecha, hora_inicio))
-            
+
             if turno_existe:
                 print("[ERROR] Ya existe un turno para este paciente, médico y horario")
                 db.desconectar()
                 return False
+
+            # Obtener id_agenda del médico
+            query_agenda = "SELECT id_agenda FROM Agenda WHERE matricula = %s LIMIT 1"
+            agenda = db.obtener_registro(query_agenda, (matricula,))
+            
+            if not agenda:
+                print(f"[ERROR] No se encontró agenda para médico matrícula {matricula}")
+                db.desconectar()
+                return False
+            
+            id_agenda = agenda['id_agenda']
             
             # Crear el turno
             query = """
-            INSERT INTO Turno (id_paciente, matricula, id_consultorio, fecha, hora_inicio, hora_fin, estado, observaciones, id_agenda)
-            VALUES (%s, %s, %s, %s, %s, %s, 'Programado', %s, NULL)
+            INSERT INTO Turno (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, estado, observaciones)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Programado', %s)
             """
-            
-            params = (id_paciente, matricula, id_consultorio, fecha, hora_inicio, hora_fin, observaciones)
+
+            params = (id_paciente, matricula, id_consultorio, id_agenda, fecha, hora_inicio, hora_fin, observaciones)
             resultado = db.ejecutar_consulta(query, params)
-            
+
             if resultado is not None and resultado > 0:
-                print(f"[OK] Turno creado exitosamente")
+                id_turno_nuevo = resultado
+                print(f"[OK] Turno creado exitosamente (ID: {id_turno_nuevo})")
                 print(f"     Fecha: {fecha} de {hora_inicio} a {hora_fin}")
                 print(f"     Consultorio: {id_consultorio}")
-                self.__turnos_bd = []  # Recargar
+                
+                # ✨ CREAR NOTIFICACIÓN AUTOMÁTICAMENTE
+                try:
+                    from gestores.gestor_notificacion import GestorNotificacion
+                    gestor_notif = GestorNotificacion()
+                    if gestor_notif.crear_notificacion_turno(id_turno_nuevo):
+                        print(f"     ✓ Notificación programada")
+                    else:
+                        print(f"     ⚠ No se pudo crear notificación (revisar teléfono del paciente)")
+                except Exception as e:
+                    print(f"     ⚠ Error al crear notificación: {str(e)}")
+                
+                self.__turnos_bd = []
                 db.desconectar()
                 return True
             else:
                 print("[ERROR] No se pudo crear el turno")
                 db.desconectar()
                 return False
-        
+
         except Exception as e:
             print(f"[ERROR] Error al crear turno: {str(e)}")
             db.desconectar()
@@ -227,7 +251,7 @@ class GestorTurno:
                 if turno['paciente_nombre']:
                     print(f"     Paciente: {turno['paciente_nombre']} {turno['paciente_apellido']}")
                 print(f"     Nuevo estado: CANCELADO")
-                self.__turnos_bd = []  # Recargar
+                self.__turnos_bd = []
                 db.desconectar()
                 return True
             else:
@@ -285,7 +309,6 @@ class GestorTurno:
             if hora_fin:
                 datos_actualizar['hora_fin'] = hora_fin
             if estado:
-                # Validar estados válidos
                 estados_validos = ['Libre', 'Programado', 'Atendido', 'Cancelado', 'Inasistencia']
                 if estado not in estados_validos:
                     print(f"[ERROR] Estado '{estado}' no válido. Válidos: {', '.join(estados_validos)}")
@@ -300,7 +323,6 @@ class GestorTurno:
                 db.desconectar()
                 return False
             
-            # Construir la consulta UPDATE dinámicamente
             campos = ", ".join([f"{campo} = %s" for campo in datos_actualizar.keys()])
             valores = list(datos_actualizar.values())
             valores.append(id_turno)
@@ -310,7 +332,7 @@ class GestorTurno:
             
             if resultado is not None and resultado > 0:
                 print(f"[OK] Turno #{id_turno} modificado exitosamente")
-                self.__turnos_bd = []  # Recargar
+                self.__turnos_bd = []
                 db.desconectar()
                 return True
             else:
@@ -325,15 +347,7 @@ class GestorTurno:
     
     # ========== CONSULTA (READ) ==========
     def consultar_turnos_paciente_bd(self, id_paciente: int) -> bool:
-        """
-        Consulta turnos de un paciente desde BD
-        
-        Args:
-            id_paciente: ID del paciente
-        
-        Returns:
-            True si se encontraron turnos
-        """
+        """Consulta turnos de un paciente desde BD"""
         db = Database()
         
         if not db.conectar("127.0.0.1:3306/hospital_db"):
@@ -371,15 +385,7 @@ class GestorTurno:
             return False
     
     def consultar_turnos_medico_bd(self, matricula: int) -> bool:
-        """
-        Consulta turnos de un médico desde BD
-        
-        Args:
-            matricula: Matrícula del médico
-        
-        Returns:
-            True si se encontraron turnos
-        """
+        """Consulta turnos de un médico desde BD"""
         db = Database()
         
         if not db.conectar("127.0.0.1:3306/hospital_db"):
@@ -417,15 +423,7 @@ class GestorTurno:
             return False
     
     def consultar_turnos_fecha_bd(self, fecha: date) -> bool:
-        """
-        Consulta turnos de una fecha específica desde BD
-        
-        Args:
-            fecha: Fecha a consultar
-        
-        Returns:
-            True si se encontraron turnos
-        """
+        """Consulta turnos de una fecha específica desde BD"""
         db = Database()
         
         if not db.conectar("127.0.0.1:3306/hospital_db"):

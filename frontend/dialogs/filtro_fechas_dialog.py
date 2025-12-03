@@ -19,24 +19,36 @@ class FiltrFechasDialog(tk.Toplevel):
         frame.pack(fill="both", expand=True)
 
         # Fecha Inicio
-        ttk.Label(frame, text="Fecha Inicio:", font=("Arial", 10)).pack(anchor="w", pady=(10, 5))
+        ttk.Label(frame, text="Fecha Inicio:", font=("Arial", 10, "bold")).pack(anchor="w", pady=(10, 5))
         self.entrada_inicio = DateEntry(
             frame,
-            width=30,
+            width=12,
             background='darkblue',
             foreground='white',
-            borderwidth=2
+            borderwidth=2,
+            date_pattern='dd/mm/yyyy',
+            year=2025,
+            month=12,
+            day=1,
+            locale='es_ES',
+            selectmode='day'
         )
         self.entrada_inicio.pack(anchor="w", pady=(0, 15))
 
         # Fecha Fin
-        ttk.Label(frame, text="Fecha Fin:", font=("Arial", 10)).pack(anchor="w", pady=(10, 5))
+        ttk.Label(frame, text="Fecha Fin:", font=("Arial", 10, "bold")).pack(anchor="w", pady=(10, 5))
         self.entrada_fin = DateEntry(
             frame,
-            width=30,
+            width=12,
             background='darkblue',
             foreground='white',
-            borderwidth=2
+            borderwidth=2,
+            date_pattern='dd/mm/yyyy',
+            year=2025,
+            month=12,
+            day=31,
+            locale='es_ES',
+            selectmode='day'
         )
         self.entrada_fin.pack(anchor="w", pady=(0, 20))
 

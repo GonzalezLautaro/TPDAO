@@ -291,14 +291,14 @@ class TurnoController:
             if turno['estado'] != 'Libre':
                 return False, f"[ERROR] El turno no está disponible (estado: {turno['estado']})"
             
-            # Actualizar el turno CON especialidad
+            # Actualizar el turno (sin id_especialidad porque esa columna no existe en la tabla)
             query_update = """
             UPDATE Turno 
-            SET id_paciente = %s, id_especialidad = %s, estado = 'Programado', observaciones = %s
+            SET id_paciente = %s, estado = 'Programado', observaciones = %s
             WHERE id_turno = %s AND estado = 'Libre'
             """
             
-            resultado = db.ejecutar_consulta(query_update, (id_paciente, id_especialidad, observaciones, id_turno))
+            resultado = db.ejecutar_consulta(query_update, (id_paciente, observaciones, id_turno))
             
             if resultado is not None and resultado > 0:
                 db.desconectar()
@@ -422,20 +422,26 @@ class TurnoController:
             return []
         
         try:
-            # Base de la query CON especialidad
+            # Base de la query CON especialidad (obtenida desde médico-especialidad)
+            # Incluye turnos libres (sin paciente) para que se puedan ver y programar
             query_base = """
             SELECT t.id_turno, 
-                   CONCAT(p.nombre, ' ', p.apellido) as paciente,
+                   COALESCE(CONCAT(p.nombre, ' ', p.apellido), 'Libre') as paciente,
                    CONCAT(m.nombre, ' ', m.apellido) as medico,
                    c.numero as consultorio,
-                   e.nombre as especialidad,
+                   COALESCE(
+                       (SELECT GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ')
+                        FROM Medico_especialidad me
+                        JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+                        WHERE me.matricula = m.matricula),
+                       'Sin especialidad'
+                   ) as especialidad,
                    t.fecha, t.hora_inicio, t.hora_fin, t.estado
             FROM Turno t
             JOIN Medico m ON t.matricula = m.matricula
             LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
             JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
-            LEFT JOIN Especialidad e ON t.id_especialidad = e.id_especialidad
-            WHERE t.id_paciente IS NOT NULL
+            WHERE 1=1
             """
             
             # Agregar condiciones según filtro
@@ -460,7 +466,8 @@ class TurnoController:
             elif filtro_estado == "inasistencia":
                 condiciones.append("t.estado = 'Inasistencia'")
             else:
-                condiciones.append("t.estado IN ('Programado', 'Atendido', 'Cancelado', 'Inasistencia')")
+                # "todos_estados" incluye también los turnos "Libre" generados
+                condiciones.append("t.estado IN ('Libre', 'Programado', 'Atendido', 'Cancelado', 'Inasistencia')")
             
             if condiciones:
                 query = query_base + " AND " + " AND ".join(condiciones)

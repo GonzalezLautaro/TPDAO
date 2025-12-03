@@ -70,8 +70,116 @@ class ReportesView(ttk.Frame):
         pass
 
     def _cantidad_turnos_especialidad(self):
-        # TODO: Implementar
-        pass
+        """Genera un reporte de cantidad de turnos por especialidad"""
+        from frontend.dialogs.filtro_fechas_dialog import FiltrFechasDialog
+        FiltrFechasDialog(self, self._generar_reporte_especialidad)
+
+    def _generar_reporte_especialidad(self, fecha_inicio, fecha_fin):
+        """Consulta la BD y muestra reporte de turnos por especialidad"""
+        try:
+            db = Database()
+            if not db.conectar():
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+
+            query = """
+            SELECT 
+                e.nombre AS especialidad,
+                SUM(CASE WHEN t.estado = 'Atendido'     THEN 1 ELSE 0 END) AS atendidos,
+                SUM(CASE WHEN t.estado = 'Inasistencia' THEN 1 ELSE 0 END) AS inasistencias,
+                SUM(CASE WHEN t.estado = 'Cancelado'    THEN 1 ELSE 0 END) AS cancelados,
+                SUM(CASE WHEN t.estado = 'Programado'   THEN 1 ELSE 0 END) AS programados,
+                SUM(CASE 
+                        WHEN t.estado IN ('Atendido','Inasistencia','Cancelado','Programado')
+                        THEN 1 ELSE 0 
+                    END) AS total
+            FROM Turno t
+            JOIN Medico m               ON m.matricula = t.matricula
+            JOIN Medico_especialidad me ON me.matricula = m.matricula
+            JOIN Especialidad e         ON e.id_especialidad = me.id_especialidad
+            WHERE t.fecha BETWEEN %s AND %s
+            AND t.estado IN ('Atendido','Inasistencia','Cancelado','Programado')
+            GROUP BY e.nombre
+            ORDER BY total DESC;
+            """
+
+            datos = db.obtener_registros(query, (fecha_inicio, fecha_fin))
+            db.desconectar()
+
+            if not datos:
+                messagebox.showinfo("Sin datos", "No hay turnos en ese rango")
+                return
+
+            # Mostrar ventana con tabla
+            from frontend.dialogs.ventana_tabla_especialidades import VentanaTablaEspecialidades
+            VentanaTablaEspecialidades(self, datos, fecha_inicio, fecha_fin)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar reporte: {e}")
+
+
+    def _mostrar_tabla_especialidades(self, filas, fecha_inicio, fecha_fin):
+        """Muestra una ventana con la tabla (Treeview) y totales al pie"""
+        win = tk.Toplevel(self)
+        win.title("Turnos por especialidad")
+        win.geometry("900x500")
+
+        header = ttk.Label(
+            win,
+            text=f"Cantidad de turnos por especialidad – {fecha_inicio} a {fecha_fin}",
+            font=("Arial", 12, "bold")
+        )
+        header.pack(pady=10)
+
+        cols = ("especialidad", "total", "atendidos", "inasistencias", "cancelados", "programados")
+        tree = ttk.Treeview(win, columns=cols, show="headings", height=18)
+        widths = [280, 90, 100, 110, 100, 110]
+        headers = ["Especialidad", "Total", "Atendidos", "Inasist.", "Cancelados", "Programados"]
+
+        for c, w, h in zip(cols, widths, headers):
+            tree.heading(c, text=h)
+            tree.column(c, width=w, anchor="center")
+
+        # cargar filas y acumular totales
+        tot_total = tot_at = tot_in = tot_ca = tot_pr = 0
+        for f in filas:
+            row = (
+                f["especialidad"],
+                f["total"] or 0,
+                f["atendidos"] or 0,
+                f["inasistencias"] or 0,
+                f["cancelados"] or 0,
+                f["programados"] or 0,
+            )
+            tot_total += row[1]
+            tot_at += row[2]
+            tot_in += row[3]
+            tot_ca += row[4]
+            tot_pr += row[5]
+            tree.insert("", "end", values=row)
+
+        tree.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+
+        # Totales
+        footer = ttk.Frame(win)
+        footer.pack(fill="x", padx=10, pady=6)
+
+        ttk.Label(
+            footer,
+            text=(
+                f"Totales  |  Total: {tot_total}  |  "
+                f"Atendidos: {tot_at}  |  "
+                f"Inasist.: {tot_in}  |  "
+                f"Cancelados: {tot_ca}  |  "
+                f"Programados: {tot_pr}"
+            ),
+            font=("Arial", 10, "bold")
+        ).pack(side="left")
+
+        ttk.Button(footer, text="Cerrar", command=win.destroy).pack(side="right")
+
+
+
 
     def _pacientes_atendidos_rango(self):
         """Abre diálogo para filtrar por fechas"""

@@ -207,15 +207,16 @@ class MedicosView(ttk.Frame):
             col_num = 0
             col_x = 0
             
-            for i, col in enumerate(["matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "acciones"]):
+            # Usar los IDs de columna definidos en el Treeview
+            for i, col in enumerate(["matricula", "nombre", "apellido", "telefono", "email", "fecha_alta", "especialidades", "acciones"]):
                 col_width = self.tree.column(col, "width")
                 if event.x < col_x + col_width:
                     col_num = i
                     break
                 col_x += col_width
             
-            # Si es la columna de acciones (columna 6)
-            if col_num == 6:
+            # Si es la columna de acciones (columna 7)
+            if col_num == 7:
                 valores = self.tree.item(item)["values"]
                 matricula = valores[0]
                 nombre = valores[1]

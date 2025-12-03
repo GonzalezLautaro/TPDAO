@@ -125,6 +125,7 @@ class PacientesView(ttk.Frame):
             col_num = 0
             col_x = 0
             
+            # Usar los IDs de columna definidos en el Treeview
             for i, col in enumerate(["id", "nombre", "apellido", "telefono", "nacimiento", "direccion", "acciones"]):
                 col_width = self.tree.column(col, "width")
                 if event.x < col_x + col_width:

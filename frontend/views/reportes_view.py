@@ -294,8 +294,7 @@ class ReportesView(ttk.Frame):
             'total_general': 0,
             'por_fecha': {},
             'por_medico': {},
-            'por_especialidad': {},
-            'turnos_por_especialidad': {}  # Cantidad de turnos (no pacientes únicos)
+            'por_especialidad': {}
         }
 
         if not resultados:
@@ -306,9 +305,6 @@ class ReportesView(ttk.Frame):
         pacientes_por_fecha = {}  # {fecha: set(id_paciente)}
         pacientes_por_medico = {}  # {medico: set(id_paciente)}
         pacientes_por_especialidad = {}  # {especialidad: set(id_paciente)}
-        
-        # Contador de turnos por especialidad (no pacientes únicos, sino cantidad de turnos)
-        turnos_por_especialidad = {}  # {especialidad: int}
         
         # Detalles por fecha y médico
         detalles_por_fecha_medico = {}  # {(fecha, medico): {'especialidades': set, 'pacientes': set}}
@@ -341,11 +337,6 @@ class ReportesView(ttk.Frame):
                 if especialidad not in pacientes_por_especialidad:
                     pacientes_por_especialidad[especialidad] = set()
                 pacientes_por_especialidad[especialidad].add(id_paciente)
-                
-                # Contar turnos por especialidad (cada turno cuenta)
-                if especialidad not in turnos_por_especialidad:
-                    turnos_por_especialidad[especialidad] = 0
-                turnos_por_especialidad[especialidad] += 1
 
             # Detalles por fecha y médico
             if medico not in detalles_por_fecha_medico[fecha]:
@@ -381,9 +372,6 @@ class ReportesView(ttk.Frame):
         # Por especialidad (pacientes únicos)
         for especialidad, pacientes_set in pacientes_por_especialidad.items():
             reporte['por_especialidad'][especialidad] = len(pacientes_set)
-
-        # Turnos por especialidad (cantidad total de turnos)
-        reporte['turnos_por_especialidad'] = turnos_por_especialidad
 
         return reporte
 

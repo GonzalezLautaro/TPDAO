@@ -37,9 +37,25 @@ class VentanaReporteDialog(tk.Toplevel):
             # Reporte estructurado (pacientes atendidos)
             self._agregar_titulo(frame)
             self._agregar_total(frame)
-            self._agregar_seccion(frame, "📋 Pacientes por Especialidad", self.reporte.get('por_especialidad', {}))
-            self._agregar_seccion_turnos(frame, "📊 Turnos Atendidos por Especialidad", self.reporte.get('turnos_por_especialidad', {}))
-            self._agregar_seccion(frame, "👨‍⚕️ Pacientes por Médico", self.reporte.get('por_medico', {}))
+            
+            # Sección: Resumen por Especialidad y Médico
+            resumen_frame = tk.LabelFrame(
+                frame, 
+                text="📊 Resumen General",
+                font=("Arial", 12, "bold"),
+                fg="#2c3e50",
+                bg="white",
+                relief=tk.GROOVE,
+                bd=2,
+                padx=10,
+                pady=10
+            )
+            resumen_frame.pack(fill="x", pady=(0, 15), padx=10)
+            
+            self._agregar_seccion(resumen_frame, "📋 Pacientes por Especialidad", self.reporte.get('por_especialidad', {}))
+            self._agregar_seccion(resumen_frame, "👨‍⚕️ Pacientes por Médico", self.reporte.get('por_medico', {}))
+            
+            # Sección: Detalle por Fechas
             self._agregar_detalle_fechas(frame)
 
         canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
@@ -153,34 +169,34 @@ class VentanaReporteDialog(tk.Toplevel):
         total_label.pack(pady=12)
 
     def _agregar_seccion(self, parent, titulo, datos):
-        # Frame para la sección con borde
-        seccion_frame = tk.Frame(parent, bg="white", relief=tk.GROOVE, bd=1)
-        seccion_frame.pack(fill="x", pady=(0, 15), padx=10)
-        
-        # Título de la sección
+        # Título de la subsección
         titulo_label = tk.Label(
-            seccion_frame,
+            parent,
             text=titulo,
-            font=("Arial", 12, "bold"),
+            font=("Arial", 11, "bold"),
             fg="#2c3e50",
             bg="white",
             anchor="w"
         )
-        titulo_label.pack(fill="x", padx=15, pady=(12, 8))
+        titulo_label.pack(fill="x", padx=10, pady=(10, 5))
+        
+        # Separador visual
+        separator = tk.Frame(parent, height=2, bg="#e0e0e0")
+        separator.pack(fill="x", padx=10, pady=(0, 8))
         
         # Contenido
-        contenido_frame = tk.Frame(seccion_frame, bg="white")
-        contenido_frame.pack(fill="x", padx=15, pady=(0, 12))
+        contenido_frame = tk.Frame(parent, bg="white")
+        contenido_frame.pack(fill="x", padx=20, pady=(0, 10))
         
         if datos:
             for clave, valor in sorted(datos.items()):
                 item_frame = tk.Frame(contenido_frame, bg="white")
-                item_frame.pack(fill="x", pady=3)
+                item_frame.pack(fill="x", pady=2)
                 
                 tk.Label(
                     item_frame,
                     text="•",
-                    font=("Arial", 12),
+                    font=("Arial", 11),
                     fg="#3498db",
                     bg="white"
                 ).pack(side="left", padx=(0, 8))
@@ -188,15 +204,17 @@ class VentanaReporteDialog(tk.Toplevel):
                 tk.Label(
                     item_frame,
                     text=f"{clave}:",
-                    font=("Arial", 10, "bold"),
+                    font=("Arial", 10),
                     fg="#34495e",
-                    bg="white"
+                    bg="white",
+                    width=30,
+                    anchor="w"
                 ).pack(side="left", padx=(0, 5))
                 
                 tk.Label(
                     item_frame,
-                    text=f"{valor}",
-                    font=("Arial", 10),
+                    text=f"{valor} pacientes",
+                    font=("Arial", 10, "bold"),
                     fg="#27ae60",
                     bg="white"
                 ).pack(side="left")
@@ -270,85 +288,94 @@ class VentanaReporteDialog(tk.Toplevel):
             ).pack(anchor="w", pady=5)
 
     def _agregar_detalle_fechas(self, parent):
-        # Frame para la sección con borde
-        seccion_frame = tk.Frame(parent, bg="white", relief=tk.GROOVE, bd=1)
-        seccion_frame.pack(fill="x", pady=(0, 15), padx=10)
-        
-        # Título de la sección
-        titulo_label = tk.Label(
-            seccion_frame,
+        # LabelFrame para la sección de detalles
+        seccion_frame = tk.LabelFrame(
+            parent,
             text="📅 Detalle por Fecha",
             font=("Arial", 12, "bold"),
             fg="#2c3e50",
             bg="white",
-            anchor="w"
+            relief=tk.GROOVE,
+            bd=2,
+            padx=10,
+            pady=10
         )
-        titulo_label.pack(fill="x", padx=15, pady=(12, 8))
-        
-        # Contenido
-        contenido_frame = tk.Frame(seccion_frame, bg="white")
-        contenido_frame.pack(fill="x", padx=15, pady=(0, 12))
+        seccion_frame.pack(fill="x", pady=(0, 15), padx=10)
         
         if self.reporte['por_fecha']:
             for fecha, datos in sorted(self.reporte['por_fecha'].items(), reverse=True):
                 # Frame para cada fecha
-                fecha_frame = tk.Frame(contenido_frame, bg="#ecf0f1", relief=tk.RAISED, bd=1)
-                fecha_frame.pack(fill="x", pady=8, padx=5)
+                fecha_frame = tk.Frame(seccion_frame, bg="#f8f9fa", relief=tk.SOLID, bd=1)
+                fecha_frame.pack(fill="x", pady=5, padx=5)
                 
-                # Título de la fecha
+                # Header de la fecha con total
+                header_frame = tk.Frame(fecha_frame, bg="#3498db")
+                header_frame.pack(fill="x")
+                
                 fecha_label = tk.Label(
-                    fecha_frame,
-                    text=f"📆 {fecha} - Total: {datos['total']} pacientes",
-                    font=("Arial", 11, "bold"),
-                    fg="#2c3e50",
-                    bg="#ecf0f1"
+                    header_frame,
+                    text=f"📆 {fecha}",
+                    font=("Arial", 10, "bold"),
+                    fg="white",
+                    bg="#3498db"
                 )
-                fecha_label.pack(anchor="w", padx=10, pady=(8, 5))
+                fecha_label.pack(side="left", padx=10, pady=6)
+                
+                total_label = tk.Label(
+                    header_frame,
+                    text=f"Total: {datos['total']} pacientes",
+                    font=("Arial", 10, "bold"),
+                    fg="#ecf0f1",
+                    bg="#3498db"
+                )
+                total_label.pack(side="right", padx=10, pady=6)
                 
                 # Detalles de médicos
-                detalles_frame = tk.Frame(fecha_frame, bg="#ecf0f1")
-                detalles_frame.pack(fill="x", padx=10, pady=(0, 8))
+                detalles_frame = tk.Frame(fecha_frame, bg="#f8f9fa")
+                detalles_frame.pack(fill="x", padx=10, pady=8)
                 
                 for detalle in datos['detalles']:
-                    detalle_item = tk.Frame(detalles_frame, bg="#ecf0f1")
-                    detalle_item.pack(fill="x", pady=2)
+                    detalle_item = tk.Frame(detalles_frame, bg="#f8f9fa")
+                    detalle_item.pack(fill="x", pady=3)
                     
                     tk.Label(
                         detalle_item,
-                        text="  →",
-                        font=("Arial", 10),
-                        fg="#7f8c8d",
-                        bg="#ecf0f1"
-                    ).pack(side="left", padx=(0, 5))
+                        text="→",
+                        font=("Arial", 10, "bold"),
+                        fg="#3498db",
+                        bg="#f8f9fa"
+                    ).pack(side="left", padx=(5, 8))
                     
                     tk.Label(
                         detalle_item,
                         text=f"{detalle['medico']}",
-                        font=("Arial", 10, "bold"),
-                        fg="#34495e",
-                        bg="#ecf0f1"
+                        font=("Arial", 10),
+                        fg="#2c3e50",
+                        bg="#f8f9fa",
+                        width=25,
+                        anchor="w"
                     ).pack(side="left", padx=(0, 5))
                     
                     tk.Label(
                         detalle_item,
-                        text=f"({detalle['especialidad']})",
+                        text=f"{detalle['especialidad']}",
                         font=("Arial", 9),
                         fg="#7f8c8d",
-                        bg="#ecf0f1"
-                    ).pack(side="left", padx=(0, 5))
+                        bg="#f8f9fa"
+                    ).pack(side="left", padx=(0, 10))
                     
                     tk.Label(
                         detalle_item,
-                        text=f": {detalle['pacientes']} pacientes",
-                        font=("Arial", 10),
+                        text=f"{detalle['pacientes']} pacientes",
+                        font=("Arial", 10, "bold"),
                         fg="#27ae60",
-                        bg="#ecf0f1"
+                        bg="#f8f9fa"
                     ).pack(side="left")
         else:
             tk.Label(
-                contenido_frame,
+                seccion_frame,
                 text="Sin datos disponibles",
                 font=("Arial", 10, "italic"),
                 fg="#95a5a6",
                 bg="white"
-            ).pack(anchor="w", pady=5)
+            ).pack(anchor="w", pady=5, padx=10)

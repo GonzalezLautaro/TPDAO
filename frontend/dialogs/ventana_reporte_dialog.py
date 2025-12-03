@@ -28,13 +28,19 @@ class VentanaReporteDialog(tk.Toplevel):
         canvas.create_window((0, 0), window=frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Contenido del reporte
-        self._agregar_titulo(frame)
-        self._agregar_total(frame)
-        self._agregar_seccion(frame, "📋 Pacientes por Especialidad", self.reporte['por_especialidad'])
-        self._agregar_seccion_turnos(frame, "📊 Turnos Atendidos por Especialidad", self.reporte.get('turnos_por_especialidad', {}))
-        self._agregar_seccion(frame, "👨‍⚕️ Pacientes por Médico", self.reporte['por_medico'])
-        self._agregar_detalle_fechas(frame)
+        # Verificar si es un reporte de texto simple o estructurado
+        if 'texto' in self.reporte:
+            # Reporte de texto simple
+            self._agregar_titulo_simple(frame)
+            self._agregar_texto_reporte(frame, self.reporte['texto'])
+        else:
+            # Reporte estructurado (pacientes atendidos)
+            self._agregar_titulo(frame)
+            self._agregar_total(frame)
+            self._agregar_seccion(frame, "📋 Pacientes por Especialidad", self.reporte.get('por_especialidad', {}))
+            self._agregar_seccion_turnos(frame, "📊 Turnos Atendidos por Especialidad", self.reporte.get('turnos_por_especialidad', {}))
+            self._agregar_seccion(frame, "👨‍⚕️ Pacientes por Médico", self.reporte.get('por_medico', {}))
+            self._agregar_detalle_fechas(frame)
 
         canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
         scrollbar.pack(side="right", fill="y")
@@ -60,6 +66,55 @@ class VentanaReporteDialog(tk.Toplevel):
         )
         btn_cerrar.pack(side="right", padx=10)
 
+    def _agregar_titulo_simple(self, parent):
+        """Título simple para reportes de texto"""
+        titulo_frame = tk.Frame(parent, bg="#2c3e50", relief=tk.RAISED, bd=2)
+        titulo_frame.pack(fill="x", pady=(0, 20), padx=10)
+        
+        titulo = tk.Label(
+            titulo_frame,
+            text="📊 Reporte",
+            font=("Arial", 16, "bold"),
+            fg="white",
+            bg="#2c3e50"
+        )
+        titulo.pack(pady=10)
+        
+        if self.fecha_inicio and self.fecha_fin:
+            subtitulo = tk.Label(
+                titulo_frame,
+                text=f"Período: {self.fecha_inicio} a {self.fecha_fin}",
+                font=("Arial", 11),
+                fg="#ecf0f1",
+                bg="#2c3e50"
+            )
+            subtitulo.pack(pady=(0, 10))
+    
+    def _agregar_texto_reporte(self, parent, texto):
+        """Agrega texto del reporte en formato simple"""
+        texto_frame = tk.Frame(parent, bg="white", relief=tk.GROOVE, bd=1)
+        texto_frame.pack(fill="both", expand=True, padx=10, pady=(0, 15))
+        
+        # Text widget con scroll
+        text_widget = tk.Text(
+            texto_frame,
+            wrap=tk.WORD,
+            font=("Courier", 10),
+            bg="white",
+            fg="#2c3e50",
+            padx=15,
+            pady=15,
+            relief=tk.FLAT
+        )
+        text_widget.insert("1.0", texto)
+        text_widget.config(state=tk.DISABLED)
+        
+        scrollbar_text = ttk.Scrollbar(texto_frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar_text.set)
+        
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar_text.pack(side="right", fill="y")
+    
     def _agregar_titulo(self, parent):
         # Frame para el título con fondo
         titulo_frame = tk.Frame(parent, bg="#2c3e50", relief=tk.RAISED, bd=2)

@@ -12,6 +12,7 @@ from frontend.views.turnos_view import TurnosView
 from frontend.views.pacientes_view import PacientesView
 from frontend.views.medicos_view import MedicosView
 from frontend.views.especialidades_view import EspecialidadesView
+from frontend.views.reportes_view import ReportesView
 
 
 class MainWindow(tk.Tk):
@@ -51,6 +52,7 @@ class MainWindow(tk.Tk):
             self._agregar_tab_pacientes()
             self._agregar_tab_medicos()
             self._agregar_tab_especialidades()
+            self._agregar_tab_reportes()
             
         except Exception as e:
             messagebox.showerror("Error Crítico", f"Error al crear tabs: {str(e)}\n\n{traceback.format_exc()}")
@@ -94,6 +96,16 @@ class MainWindow(tk.Tk):
             print("[OK] Tab Especialidades cargado")
         except Exception as e:
             print(f"[ERROR] Error al cargar tab Especialidades: {str(e)}")
+            traceback.print_exc()
+    
+    def _agregar_tab_reportes(self):
+        """Agrega tab de reportes"""
+        try:
+            reportes_view = ReportesView(self.notebook)
+            self.notebook.add(reportes_view, text="📊 Reportes")
+            print("[OK] Tab Reportes cargado")
+        except Exception as e:
+            print(f"[ERROR] Error al cargar tab Reportes: {str(e)}")
             traceback.print_exc()
     
     def _configurar_estilo(self):

@@ -66,12 +66,170 @@ class ReportesView(ttk.Frame):
         btn4.pack(pady=15, padx=30, fill="x", ipady=10)
 
     def _listado_turnos_medico_periodo(self):
-        # TODO: Implementar
-        pass
-
+        """Listado de turnos por médico en un período"""
+        # Abrir diálogo para seleccionar médico y período
+        FiltrFechasDialog(self, self._generar_reporte_turnos_medico)
+    
+    def _generar_reporte_turnos_medico(self, fecha_inicio, fecha_fin):
+        """Genera reporte de turnos por médico en un período"""
+        try:
+            # Primero seleccionar médico
+            db = Database()
+            if not db.conectar("127.0.0.1:3306/hospital_db"):
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+            
+            # Obtener lista de médicos
+            query_medicos = """
+            SELECT matricula, CONCAT(nombre, ' ', apellido) as nombre_completo
+            FROM Medico
+            WHERE activo = 1
+            ORDER BY nombre, apellido
+            """
+            medicos = db.obtener_registros(query_medicos)
+            db.desconectar()
+            
+            if not medicos:
+                messagebox.showwarning("Advertencia", "No hay médicos disponibles")
+                return
+            
+            # Crear diálogo para seleccionar médico
+            from tkinter import simpledialog
+            opciones = [f"{m['nombre_completo']} (Mat: {m['matricula']})" for m in medicos]
+            
+            # Usar un diálogo simple para seleccionar médico
+            dialog = tk.Toplevel(self)
+            dialog.title("Seleccionar Médico")
+            dialog.geometry("400x300")
+            dialog.transient(self.winfo_toplevel())
+            dialog.grab_set()
+            
+            ttk.Label(dialog, text="Selecciona un médico:", font=("Arial", 10)).pack(pady=10)
+            
+            medico_var = tk.StringVar()
+            combo = ttk.Combobox(dialog, textvariable=medico_var, values=opciones, state="readonly", width=40)
+            combo.pack(pady=10)
+            
+            resultado = {'medico_seleccionado': None, 'nombre_medico': None}
+            
+            def confirmar():
+                if not combo.get():
+                    messagebox.showwarning("Advertencia", "Selecciona un médico")
+                    return
+                
+                # Extraer matrícula y nombre
+                texto = combo.get()
+                try:
+                    matricula = int(texto.split("Mat: ")[1].rstrip(")"))
+                    nombre_medico = texto.split(" (Mat:")[0]
+                    resultado['medico_seleccionado'] = matricula
+                    resultado['nombre_medico'] = nombre_medico
+                    dialog.destroy()
+                except (ValueError, IndexError):
+                    messagebox.showerror("Error", "Error al parsear matrícula")
+            
+            ttk.Button(dialog, text="Aceptar", command=confirmar).pack(pady=10)
+            ttk.Button(dialog, text="Cancelar", command=dialog.destroy).pack()
+            
+            dialog.wait_window()
+            
+            if not resultado['medico_seleccionado']:
+                return
+            
+            matricula = resultado['medico_seleccionado']
+            nombre_medico = resultado['nombre_medico']
+            
+            # Generar reporte
+            db = Database()
+            if not db.conectar("127.0.0.1:3306/hospital_db"):
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+            
+            query = """
+            SELECT t.id_turno, t.fecha, t.hora_inicio, t.hora_fin, t.estado,
+                   CONCAT(p.nombre, ' ', p.apellido) as paciente,
+                   c.numero as consultorio
+            FROM Turno t
+            LEFT JOIN Paciente p ON t.id_paciente = p.id_paciente
+            JOIN Consultorio c ON t.id_consultorio = c.id_consultorio
+            WHERE t.matricula = %s
+            AND t.fecha BETWEEN %s AND %s
+            ORDER BY t.fecha, t.hora_inicio
+            """
+            
+            turnos = db.obtener_registros(query, (matricula, fecha_inicio, fecha_fin))
+            db.desconectar()
+            
+            if not turnos:
+                messagebox.showinfo("Sin datos", "No hay turnos para este médico en el período seleccionado")
+                return
+            
+            # Mostrar reporte
+            texto_reporte = f"REPORTE DE TURNOS POR MÉDICO\n"
+            texto_reporte += f"Período: {fecha_inicio} a {fecha_fin}\n"
+            texto_reporte += f"Médico: {nombre_medico} (Mat: {matricula})\n"
+            texto_reporte += f"{'='*60}\n\n"
+            texto_reporte += f"Total de turnos: {len(turnos)}\n\n"
+            
+            for turno in turnos:
+                paciente = turno.get('paciente', 'Libre')
+                texto_reporte += f"Fecha: {turno['fecha']} | Hora: {turno['hora_inicio']} - {turno['hora_fin']}\n"
+                texto_reporte += f"  Paciente: {paciente} | Consultorio: {turno['consultorio']} | Estado: {turno['estado']}\n\n"
+            
+            VentanaReporteDialog(self, {'texto': texto_reporte}, fecha_inicio, fecha_fin)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar reporte: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def _cantidad_turnos_especialidad(self):
-        # TODO: Implementar
-        pass
+        """Cantidad de turnos por especialidad"""
+        try:
+            db = Database()
+            if not db.conectar("127.0.0.1:3306/hospital_db"):
+                messagebox.showerror("Error", "No se pudo conectar a la BD")
+                return
+            
+            query = """
+            SELECT 
+                e.id_especialidad,
+                e.nombre as especialidad,
+                COUNT(t.id_turno) as cantidad_turnos
+            FROM Especialidad e
+            LEFT JOIN Medico_especialidad me ON e.id_especialidad = me.id_especialidad
+            LEFT JOIN Turno t ON me.matricula = t.matricula
+            WHERE t.estado IN ('Programado', 'Atendido')
+            GROUP BY e.id_especialidad, e.nombre
+            ORDER BY cantidad_turnos DESC, e.nombre
+            """
+            
+            resultados = db.obtener_registros(query)
+            db.desconectar()
+            
+            if not resultados:
+                messagebox.showinfo("Sin datos", "No hay turnos registrados por especialidad")
+                return
+            
+            # Generar texto del reporte
+            texto_reporte = "CANTIDAD DE TURNOS POR ESPECIALIDAD\n"
+            texto_reporte += f"{'='*60}\n\n"
+            
+            total_general = 0
+            for row in resultados:
+                cantidad = row['cantidad_turnos'] or 0
+                total_general += cantidad
+                texto_reporte += f"{row['especialidad']}: {cantidad} turnos\n"
+            
+            texto_reporte += f"\n{'='*60}\n"
+            texto_reporte += f"TOTAL GENERAL: {total_general} turnos\n"
+            
+            VentanaReporteDialog(self, {'texto': texto_reporte}, None, None)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar reporte: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _pacientes_atendidos_rango(self):
         """Abre diálogo para filtrar por fechas"""
@@ -81,7 +239,7 @@ class ReportesView(ttk.Frame):
         """Genera el reporte con las fechas seleccionadas"""
         try:
             db = Database()
-            if not db.conectar():
+            if not db.conectar("127.0.0.1:3306/hospital_db"):
                 messagebox.showerror("Error", "No se pudo conectar a la BD")
                 return
 
@@ -239,15 +397,14 @@ class ReportesView(ttk.Frame):
         )
 
         try:
-            db_config = Database()
-            
+            # Usar configuración estándar
             png = grafico_asistencia_bd(
                 ruta,
-                host=db_config.host,
-                user=db_config.user,
-                password=db_config.password,
-                database=db_config.database,
-                port=db_config.port,
+                host="127.0.0.1",
+                user="root",
+                password="",
+                database="hospital_db",
+                port=3306,
                 tipo="pie"
             )
 

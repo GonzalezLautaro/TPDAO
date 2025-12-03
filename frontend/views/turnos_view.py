@@ -13,40 +13,6 @@ class TurnosView(ttk.Frame):
         super().__init__(parent, padding=12)
         self.ctrl = TurnoController()
         
-<<<<<<< HEAD
-        # Frame superior con título y botones
-        top_frame = ttk.Frame(self)
-        top_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(top_frame, text="📅 TURNOS PROGRAMADOS", font=("Arial", 12, "bold")).pack(side=tk.LEFT)
-        
-        btn_frame = ttk.Frame(top_frame)
-        btn_frame.pack(side=tk.RIGHT)
-        
-        ttk.Button(btn_frame, text="➕ Nuevo Turno", command=self._programar_turno).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="🔄 Actualizar", command=self._refresh).pack(side=tk.LEFT, padx=5)
-        
-        # Tabla de turnos
-        self.tree = ttk.Treeview(self, columns=("id", "paciente", "medico", "consultorio", "fecha", "horario", "estado"), height=12)
-        self.tree.heading("#0", text="ID")
-        self.tree.heading("id", text="ID")
-        self.tree.heading("paciente", text="Paciente")
-        self.tree.heading("medico", text="Médico")
-        self.tree.heading("consultorio", text="Consultorio")
-        self.tree.heading("fecha", text="Fecha")
-        self.tree.heading("horario", text="Horario")
-        self.tree.heading("estado", text="Estado")
-        
-        # Anchos
-        self.tree.column("#0", width=0, stretch=False)
-        self.tree.column("id", width=30)
-        self.tree.column("paciente", width=120)
-        self.tree.column("medico", width=120)
-        self.tree.column("consultorio", width=80)
-        self.tree.column("fecha", width=100)
-        self.tree.column("horario", width=100)
-        self.tree.column("estado", width=80)
-=======
         # Frame superior con botones
         top_frame = ttk.Frame(self)
         top_frame.pack(fill="x", pady=(0, 10))
@@ -105,7 +71,7 @@ class TurnosView(ttk.Frame):
         
         # Definir columnas INCLUYENDO especialidad
         columns = ("ID", "Paciente", "Médico", "Consult.", "Especialidad", "Fecha", "Horario", "Estado", "Acciones")
-        self.tree = ttk.Treeview(self, columns=columns, show="headings", height=15)
+        self.tree = ttk.Treeview(tabla_frame, columns=columns, show="headings", height=15)
         
         # Configurar encabezados
         self.tree.heading("ID", text="ID")
@@ -128,7 +94,6 @@ class TurnosView(ttk.Frame):
         self.tree.column("Horario", width=120, anchor="center")
         self.tree.column("Estado", width=90, anchor="center")
         self.tree.column("Acciones", width=180)
->>>>>>> 4056e95b854499208088982197d9157d69b3a4c0
         
         scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)

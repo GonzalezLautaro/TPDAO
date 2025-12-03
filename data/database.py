@@ -22,7 +22,7 @@ class Database:
             self.__host = "127.0.0.1"
             self.__port = 3306
             self.__user = "root"
-            self.__password = ""  # Cambiar según configuración
+            self.__password = "1234"  # Cambiar según configuración
             self.__database = "hospital_db"
             self.__last_insert_id = None
             Database.__inicializado = True

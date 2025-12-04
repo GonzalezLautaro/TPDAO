@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, time
 import sys, os
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -13,8 +13,8 @@ class MedicosController:
     def __init__(self):
         self.gestor = GestorMedico()
 
-    def crear(self, matricula, nombre, apellido, tel, email, fecha_alta, especialidades_ids=None):
-        """Crea un nuevo médico y asigna especialidades"""
+    def crear(self, matricula, nombre, apellido, tel, email, fecha_alta, especialidades_ids=None, agenda_data=None):
+        """Crea un nuevo médico, asigna especialidades, crea agenda y genera turnos"""
         if not matricula or not nombre or not apellido or not email:
             return False, "Faltan datos obligatorios"
         
@@ -28,18 +28,12 @@ class MedicosController:
         except Exception:
             return False, "Fecha inválida (YYYY-MM-DD)"
         
-        # Crear médico en memoria
-        ok = self.gestor.alta_medico(matricula_int, nombre, apellido, tel, email, fecha)
-        if not ok:
-            return False, "No se pudo crear médico"
-        
-        # Guardar médico en BD
         db = Database()
         if not db.conectar("127.0.0.1:3306/hospital_db"):
             return False, "No se pudo conectar a la base de datos"
         
         try:
-            # Insertar médico
+            # 1. Insertar médico
             query = """
             INSERT INTO Medico (matricula, nombre, apellido, telefono, email, fecha_ingreso, activo)
             VALUES (%s, %s, %s, %s, %s, %s, 1)
@@ -50,7 +44,7 @@ class MedicosController:
                 db.desconectar()
                 return False, "Error al guardar médico en BD"
             
-            # Guardar especialidades si existen
+            # 2. Asignar especialidades
             if especialidades_ids:
                 for esp_id in especialidades_ids:
                     try:
@@ -62,12 +56,87 @@ class MedicosController:
                     except Exception as e:
                         print(f"[WARNING] Error al asignar especialidad {esp_id}: {str(e)}")
             
+            # 3. Crear agenda y generar turnos
+            if agenda_data:
+                for agenda_item in agenda_data:
+                    try:
+                        # Insertar agenda
+                        query_agenda = """
+                        INSERT INTO Agenda (matricula, id_consultorio, dia_semana, hora_inicio, hora_fin, activa)
+                        VALUES (%s, %s, %s, %s, %s, TRUE)
+                        """
+                        db.ejecutar_consulta(query_agenda, (
+                            matricula_int,
+                            agenda_item['id_consultorio'],
+                            agenda_item['dia'],
+                            agenda_item['hora_inicio'],
+                            agenda_item['hora_fin']
+                        ))
+                        
+                        id_agenda = db.get_last_insert_id()
+                        
+                        # Generar turnos para los próximos 30 días
+                        self._generar_turnos_para_agenda(
+                            db, id_agenda, matricula_int, 
+                            agenda_item['id_consultorio'],
+                            agenda_item['dia'],
+                            agenda_item['hora_inicio'],
+                            agenda_item['hora_fin']
+                        )
+                        
+                    except Exception as e:
+                        print(f"[WARNING] Error al crear agenda para {agenda_item['dia']}: {str(e)}")
+            
             db.desconectar()
             return True, "Médico creado exitosamente"
         
         except Exception as e:
             db.desconectar()
             return False, f"Error: {str(e)}"
+    
+    def _generar_turnos_para_agenda(self, db, id_agenda, matricula, id_consultorio, dia_semana, hora_inicio, hora_fin):
+        """Genera turnos de 30 minutos para una agenda específica (próximos 30 días)"""
+        dias_semana_map = {
+            "Lunes": 0, "Martes": 1, "Miércoles": 2, "Jueves": 3,
+            "Viernes": 4, "Sábado": 5, "Domingo": 6
+        }
+        
+        numero_dia = dias_semana_map.get(dia_semana)
+        if numero_dia is None:
+            return
+        
+        fecha_actual = date.today()
+        fecha_fin = fecha_actual + timedelta(days=30)
+        
+        while fecha_actual < fecha_fin:
+            if fecha_actual.weekday() == numero_dia:
+                # Generar turnos para este día
+                hora_actual = datetime.combine(fecha_actual, hora_inicio)
+                hora_fin_dt = datetime.combine(fecha_actual, hora_fin)
+                
+                while hora_actual < hora_fin_dt:
+                    hora_inicio_turno = hora_actual.time()
+                    hora_fin_turno = (hora_actual + timedelta(minutes=30)).time()
+                    
+                    if hora_fin_turno > hora_fin:
+                        break
+                    
+                    try:
+                        query = """
+                        INSERT INTO Turno (matricula, id_consultorio, id_agenda, id_especialidad, 
+                                          fecha, hora_inicio, hora_fin, estado)
+                        VALUES (%s, %s, %s, NULL, %s, %s, %s, 'Libre')
+                        """
+                        db.ejecutar_consulta(query, (
+                            matricula, id_consultorio, id_agenda, 
+                            fecha_actual, hora_inicio_turno, hora_fin_turno
+                        ))
+                    except Exception as e:
+                        print(f"[WARNING] Error al crear turno: {str(e)}")
+                    
+                    hora_actual += timedelta(minutes=30)
+            
+            fecha_actual += timedelta(days=1)
 
     def modificar(self, matricula, nombre, apellido, telefono, email, fecha_alta):
         """Modifica un médico en la BD"""

@@ -117,7 +117,7 @@ class TurnosView(ttk.Frame):
             if not item:
                 return
             
-            # Detectar columna clickeada - usar IDs exactos de columnas
+            # Detectar columna clickeada
             col_num = 0
             col_x = 0
             
@@ -139,16 +139,23 @@ class TurnosView(ttk.Frame):
                 fecha = valores[5]
                 horario = valores[6]
                 estado = valores[7]
+                acciones_texto = valores[8]
                 
-                # Verificar si el turno ya pasó
+                # Verificar si el turno ya pasó o es futuro
                 try:
                     fecha_turno = date.fromisoformat(str(fecha))
                     turno_pasado = fecha_turno < date.today()
+                    turno_futuro = fecha_turno > date.today()
                 except:
                     turno_pasado = False
+                    turno_futuro = False
                 
                 # Si el turno ya pasó, o está Atendido, Cancelado o Inasistencia, no hacer nada
                 if turno_pasado or estado in ['Atendido', 'Cancelado', 'Inasistencia']:
+                    return
+                
+                # Si no hay acciones disponibles, salir
+                if acciones_texto == "— | — | —":
                     return
                 
                 # Determinar ancho de la columna de acciones
@@ -169,19 +176,19 @@ class TurnosView(ttk.Frame):
                 }
                 
                 if event.x < acciones_col_x + tercio:
-                    # Atender
-                    if estado == "Programado":
+                    # Atender (solo disponible para turnos de hoy)
+                    if not turno_futuro and estado == "Programado" and "Atender" in acciones_texto:
                         self._atender_turno(turno_data)
-                    else:
-                        messagebox.showinfo("Información", f"Este turno ya está en estado: {estado}")
                 
                 elif event.x < acciones_col_x + (tercio * 2):
-                    # Cancelar
-                    self._cancelar_turno(id_turno, paciente, estado)
+                    # Cancelar (disponible para hoy y futuros)
+                    if "Cancelar" in acciones_texto:
+                        self._cancelar_turno(id_turno, paciente, estado, fecha)
                 
                 else:
-                    # No Asistió
-                    self._marcar_inasistencia(id_turno, paciente, estado)
+                    # No Asistió (solo disponible para turnos de hoy)
+                    if not turno_futuro and estado == "Programado" and "No Asistió" in acciones_texto:
+                        self._marcar_inasistencia(id_turno, paciente, estado)
         
         except Exception as e:
             print(f"[ERROR] Error en click: {str(e)}")
@@ -194,24 +201,47 @@ class TurnosView(ttk.Frame):
         self.winfo_toplevel().wait_window(dialog.window)
         self._refresh()
     
-    def _cancelar_turno(self, id_turno, paciente, estado):
-        """Cancela un turno"""
+    def _cancelar_turno(self, id_turno, paciente, estado, fecha):
+        """Cancela un turno o lo libera si es futuro"""
         if estado == "Atendido":
             messagebox.showwarning("Advertencia", "No se puede cancelar un turno ya atendido")
             return
         
-        respuesta = messagebox.askyesno(
-            "Confirmar",
-            f"¿Deseas cancelar el turno de {paciente}?"
-        )
+        # Verificar si es turno futuro
+        try:
+            fecha_turno = date.fromisoformat(str(fecha))
+            es_futuro = fecha_turno > date.today()
+        except:
+            es_futuro = False
         
-        if respuesta:
-            ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Cancelado")
-            if ok:
-                messagebox.showinfo("Éxito", "✓ Turno cancelado correctamente")
-                self._refresh()
-            else:
-                messagebox.showerror("Error", msg)
+        if es_futuro:
+            # Turno futuro: liberar para que otro paciente pueda tomarlo
+            respuesta = messagebox.askyesno(
+                "Confirmar",
+                f"¿Deseas cancelar el turno de {paciente}?\n\nEl turno quedará disponible para otro paciente."
+            )
+            
+            if respuesta:
+                ok, msg = self.ctrl.liberar_turno(id_turno)
+                if ok:
+                    messagebox.showinfo("Éxito", "✓ Turno cancelado y liberado correctamente")
+                    self._refresh()
+                else:
+                    messagebox.showerror("Error", msg)
+        else:
+            # Turno de hoy o pasado: cancelar normalmente
+            respuesta = messagebox.askyesno(
+                "Confirmar",
+                f"¿Deseas cancelar el turno de {paciente}?"
+            )
+            
+            if respuesta:
+                ok, msg = self.ctrl.cambiar_estado_turno(id_turno, "Cancelado")
+                if ok:
+                    messagebox.showinfo("Éxito", "✓ Turno cancelado correctamente")
+                    self._refresh()
+                else:
+                    messagebox.showerror("Error", msg)
     
     def _marcar_inasistencia(self, id_turno, paciente, estado):
         """Marca un turno como inasistencia"""
@@ -242,24 +272,20 @@ class TurnosView(ttk.Frame):
 
         valores = self.tree.item(sel)["values"]
 
-        # En tu tabla, valores[0] es id_turno ✔️
         try:
             id_turno = int(valores[0])
         except:
             messagebox.showerror("Error", "No pude leer el ID del turno.")
             return
 
-        # Import tardío para no romper nada
         from ..controllers.recetas_controller import RecetasController
         ctrl = RecetasController()
 
-        # Ver receta existente asociada al turno
         id_receta = ctrl.id_receta_de_turno(id_turno)
         if not id_receta:
             messagebox.showerror("Sin receta", "Este turno no tiene receta registrada.")
             return
 
-        # Elegir destino del PDF
         from tkinter import filedialog
         archivo = filedialog.asksaveasfilename(
             defaultextension=".pdf",
@@ -269,7 +295,6 @@ class TurnosView(ttk.Frame):
         if not archivo:
             return
 
-        # Generar PDF
         ok = ctrl.generar_pdf(id_receta, archivo)
         if ok:
             messagebox.showinfo("Éxito", f"Receta #{id_receta} generada:\n{archivo}")
@@ -286,19 +311,29 @@ class TurnosView(ttk.Frame):
         
         turnos = self.ctrl.obtener_turnos_con_doble_filtro(filtro_fecha, filtro_estado)
         
+        hoy = date.today()
+        
         for t in turnos:
             # Verificar si el turno ya pasó (fecha anterior a hoy)
             try:
                 fecha_turno = date.fromisoformat(str(t['fecha']))
-                turno_pasado = fecha_turno < date.today()
+                turno_pasado = fecha_turno < hoy
+                turno_futuro = fecha_turno > hoy
+                turno_hoy = fecha_turno == hoy
             except:
                 turno_pasado = False
+                turno_futuro = False
+                turno_hoy = True
             
-            # Determinar texto de acciones según estado y si ya pasó
+            # Determinar texto de acciones según estado y fecha
             if turno_pasado or t['estado'] in ['Atendido', 'Cancelado', 'Inasistencia']:
                 # Turnos pasados, atendidos, cancelados o inasistencia: sin acciones
                 acciones = "— | — | —"
-            elif t['estado'] == 'Programado':
+            elif turno_futuro and t['estado'] == 'Programado':
+                # Turnos futuros programados: solo cancelar
+                acciones = "— | ✕ Cancelar | —"
+            elif turno_hoy and t['estado'] == 'Programado':
+                # Turnos de hoy programados: todas las acciones
                 acciones = "✓ Atender | ✕ Cancelar | ⚠ No Asistió"
             else:
                 acciones = "— | — | —"

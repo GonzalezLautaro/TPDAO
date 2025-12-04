@@ -379,8 +379,64 @@ Horario: {turno_data['horario']}"""
             self.canvas.unbind_all("<MouseWheel>")
             
             messagebox.showinfo("Éxito", mensaje_exito)
+            
+            # Preguntar si desea imprimir receta
+            if self.recetas:
+                respuesta = messagebox.askyesno(
+                    "Imprimir Receta",
+                    "¿Desea imprimir la receta médica?",
+                    parent=self.window
+                )
+                
+                if respuesta:
+                    self._imprimir_receta(id_historial, fecha_obj)
+            
             self.window.destroy()
         
         except Exception as e:
             db.desconectar()
             messagebox.showerror("Error", f"Error al guardar: {str(e)}")
+    
+    def _imprimir_receta(self, id_historial, fecha_emision):
+        """Genera PDF de la receta asociada al historial clínico"""
+        try:
+            # Buscar la receta asociada al historial
+            db = Database()
+            if not db.conectar("127.0.0.1:3306/hospital_db"):
+                messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+                return
+            
+            query = "SELECT id_receta FROM Receta WHERE id_historial = %s LIMIT 1"
+            resultado = db.obtener_registro(query, (id_historial,))
+            db.desconectar()
+            
+            if not resultado or 'id_receta' not in resultado:
+                messagebox.showwarning("Sin receta", "No se encontró receta para este historial")
+                return
+            
+            id_receta = resultado['id_receta']
+            
+            # Importar controller de recetas
+            from ..controllers.recetas_controller import RecetasController
+            ctrl = RecetasController()
+            
+            # Elegir destino del PDF
+            from tkinter import filedialog
+            archivo = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                initialfile=f"receta_{id_receta}_{fecha_emision}.pdf",
+                filetypes=[("PDF", "*.pdf")]
+            )
+            
+            if not archivo:
+                return
+            
+            # Generar PDF
+            ok = ctrl.generar_pdf(id_receta, archivo)
+            if ok:
+                messagebox.showinfo("Éxito", f"Receta #{id_receta} generada exitosamente:\n{archivo}")
+            else:
+                messagebox.showerror("Error", "Error al generar el PDF. Verifique que reportlab esté instalado.")
+        
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al imprimir receta: {str(e)}")

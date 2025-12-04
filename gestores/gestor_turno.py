@@ -174,16 +174,11 @@ class GestorTurno:
                 print(f"     Fecha: {fecha} de {hora_inicio} a {hora_fin}")
                 print(f"     Consultorio: {id_consultorio}")
                 
-                # ✨ CREAR NOTIFICACIÓN AUTOMÁTICAMENTE
+                # ✨ MOSTRAR NOTIFICACIÓN SIMULADA EN TERMINAL
                 try:
-                    from gestores.gestor_notificacion import GestorNotificacion
-                    gestor_notif = GestorNotificacion()
-                    if gestor_notif.crear_notificacion_turno(id_turno_nuevo):
-                        print(f"     ✓ Notificación programada")
-                    else:
-                        print(f"     ⚠ No se pudo crear notificación (revisar teléfono del paciente)")
+                    self._mostrar_notificacion_terminal(id_turno_nuevo, id_paciente, matricula, fecha, hora_inicio, hora_fin, id_consultorio)
                 except Exception as e:
-                    print(f"     ⚠ Error al crear notificación: {str(e)}")
+                    print(f"     ⚠ Error al mostrar notificación: {str(e)}")
                 
                 self.__turnos_bd = []
                 db.desconectar()
@@ -197,6 +192,136 @@ class GestorTurno:
             print(f"[ERROR] Error al crear turno: {str(e)}")
             db.desconectar()
             return False
+    
+    def _mostrar_notificacion_terminal(self, id_turno, id_paciente, matricula, fecha, hora_inicio, hora_fin, id_consultorio):
+        """Muestra una notificación simulada en la terminal con todos los datos del turno"""
+        
+        db = Database()
+        if not db.conectar("127.0.0.1:3306/hospital_db"):
+            return
+        
+        try:
+            # Obtener datos completos del paciente, médico y especialidad
+            query = """
+            SELECT 
+                p.nombre as paciente_nombre,
+                p.apellido as paciente_apellido,
+                p.telefono as paciente_telefono,
+                p.direccion as paciente_direccion,
+                p.fecha_nacimiento as paciente_nacimiento,
+                m.nombre as medico_nombre,
+                m.apellido as medico_apellido,
+                me.id_especialidad,
+                e.nombre as especialidad_nombre,
+                c.numero as consultorio_numero,
+                c.piso as consultorio_piso
+            FROM Paciente p
+            CROSS JOIN Medico m
+            LEFT JOIN Medico_Especialidad me ON m.matricula = me.matricula
+            LEFT JOIN Especialidad e ON me.id_especialidad = e.id_especialidad
+            LEFT JOIN Consultorio c ON c.id_consultorio = %s
+            WHERE p.id_paciente = %s AND m.matricula = %s
+            LIMIT 1
+            """
+            
+            datos = db.obtener_registro(query, (id_consultorio, id_paciente, matricula))
+            
+            if not datos:
+                print("     ⚠ No se pudieron obtener los datos completos")
+                return
+            
+            # Formatear fecha y hora
+            from datetime import datetime, timedelta
+            
+            if isinstance(hora_inicio, str):
+                hora_str = hora_inicio
+            elif isinstance(hora_inicio, timedelta):
+                total_seconds = int(hora_inicio.total_seconds())
+                hora_str = f"{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}"
+            else:
+                hora_str = str(hora_inicio)[:5]
+            
+            if isinstance(hora_fin, str):
+                hora_fin_str = hora_fin
+            elif isinstance(hora_fin, timedelta):
+                total_seconds = int(hora_fin.total_seconds())
+                hora_fin_str = f"{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}"
+            else:
+                hora_fin_str = str(hora_fin)[:5]
+            
+            # Calcular edad
+            if datos['paciente_nacimiento']:
+                hoy = datetime.now().date()
+                edad = hoy.year - datos['paciente_nacimiento'].year
+                if (hoy.month, hoy.day) < (datos['paciente_nacimiento'].month, datos['paciente_nacimiento'].day):
+                    edad -= 1
+            else:
+                edad = "N/A"
+            
+            # MOSTRAR NOTIFICACIÓN ESTILO BANNER
+            print("\n" + "═" * 80)
+            print("║" + " " * 78 + "║")
+            print("║" + "📧 NOTIFICACIÓN DE TURNO PROGRAMADO".center(78) + "║")
+            print("║" + " " * 78 + "║")
+            print("═" * 80)
+            
+            print("\n👤 DATOS DEL PACIENTE")
+            print("─" * 80)
+            print(f"   Nombre completo:  {datos['paciente_nombre']} {datos['paciente_apellido']}")
+            print(f"   Edad:             {edad} años")
+            if datos['paciente_telefono']:
+                print(f"   Teléfono:         {datos['paciente_telefono']}")
+            if datos['paciente_direccion']:
+                print(f"   Dirección:        {datos['paciente_direccion']}")
+            
+            print("\n🏥 DATOS DEL TURNO")
+            print("─" * 80)
+            print(f"   Nº de Turno:      #{id_turno}")
+            print(f"   Fecha:            {fecha.strftime('%d/%m/%Y') if hasattr(fecha, 'strftime') else fecha}")
+            print(f"   Horario:          {hora_str} - {hora_fin_str}")
+            print(f"   Duración:         {hora_fin_str} - {hora_str}")
+            print(f"   Estado:           PROGRAMADO ✓")
+            
+            print("\n👨‍⚕️ DATOS DEL MÉDICO")
+            print("─" * 80)
+            print(f"   Profesional:      Dr/a. {datos['medico_nombre']} {datos['medico_apellido']}")
+            if datos['especialidad_nombre']:
+                print(f"   Especialidad:     {datos['especialidad_nombre']}")
+            print(f"   Matrícula:        {matricula}")
+            
+            print("\n📍 UBICACIÓN")
+            print("─" * 80)
+            print(f"   Consultorio:      Nº {datos['consultorio_numero']}")
+            print(f"   Piso:             {datos['consultorio_piso']}")
+            
+            print("\n💬 MENSAJE AL PACIENTE")
+            print("─" * 80)
+            mensaje = f"""
+   Estimado/a {datos['paciente_nombre']} {datos['paciente_apellido']}:
+   
+   Se ha programado exitosamente su turno médico con el/la Dr/a. 
+   {datos['medico_apellido']}, {datos['medico_nombre']}.
+   
+   📅 Fecha: {fecha.strftime('%d/%m/%Y') if hasattr(fecha, 'strftime') else fecha}
+   ⏰ Hora: {hora_str}
+   🏥 Consultorio Nº {datos['consultorio_numero']} - Piso {datos['consultorio_piso']}
+   {f"🩺 Especialidad: {datos['especialidad_nombre']}" if datos['especialidad_nombre'] else ""}
+   
+   Por favor, llegue 10 minutos antes de su turno.
+   Si necesita cancelar, hágalo con 24hs de anticipación.
+   
+   ¡Gracias por confiar en nosotros!
+            """
+            print(mensaje)
+            
+            print("═" * 80)
+            print("║" + "Sistema de Gestión de Turnos - Hospital DAO".center(78) + "║")
+            print("═" * 80 + "\n")
+            
+        except Exception as e:
+            print(f"     ⚠ Error al generar notificación: {str(e)}")
+        finally:
+            db.desconectar()
     
     # ========== BAJA (DELETE) ==========
     def baja_turno_bd(self, id_turno: int) -> bool:

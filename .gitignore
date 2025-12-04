@@ -150,3 +150,4 @@ secrets.py
 
 # Archivos de reportes generados
 reports/out/
+!ampliacion_bd_contactos.sql

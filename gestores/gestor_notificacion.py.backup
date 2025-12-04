@@ -1,0 +1,127 @@
+﻿# filepath: gestores/gestor_notificacion.py
+from datetime import datetime, timedelta
+from data.database import Database
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class GestorNotificacion:
+    def __init__(self):
+        self.db = Database()
+        self.email_sender = os.getenv('EMAIL_SENDER')
+        self.email_password = os.getenv('EMAIL_PASSWORD')
+    
+    def enviar_email(self, destinatario, asunto, mensaje):
+        '''Envía un email usando Gmail SMTP'''
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.email_sender
+            msg['To'] = destinatario
+            msg['Subject'] = asunto
+            msg.attach(MIMEText(mensaje, 'plain', 'utf-8'))
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(self.email_sender, self.email_password)
+                server.send_message(msg)
+            
+            return True, f'Email enviado a {destinatario}'
+        except Exception as e:
+            return False, f'Error al enviar email: {str(e)}'
+    
+    def crear_notificaciones_turno(self, id_turno, contacto_adicional=None):
+        '''
+        Crea DOS notificaciones para un turno:
+        1. Notificación INMEDIATA (confirmación al crear el turno)
+        2. Notificación RECORDATORIO (24hs antes del turno)
+        '''
+        if not self.db.conectar():
+            return False
+        
+        try:
+            # Obtener datos del turno
+            query_turno = '''
+            SELECT t.*, 
+                   CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                   CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                   e.nombre as especialidad
+            FROM Turno t
+            JOIN Paciente p ON t.id_paciente = p.id_paciente
+            JOIN Medico m ON t.matricula = m.matricula
+            JOIN Especialidad e ON m.id_especialidad = e.id_especialidad
+            WHERE t.id_turno = %s
+            '''
+            
+            turno = self.db.obtener_registro(query_turno, (id_turno,))
+            
+            if not turno:
+                print(f'[ERROR] No se encontró el turno {id_turno}')
+                return False
+            
+            # Obtener email del paciente desde Contactos_Paciente
+            query_contacto = '''
+            SELECT valor_contacto 
+            FROM Contactos_Paciente 
+            WHERE id_paciente = %s 
+              AND tipo_contacto = 'Email' 
+              AND activo = TRUE
+              AND es_principal = TRUE
+            LIMIT 1
+            '''
+            
+            contacto = self.db.obtener_registro(query_contacto, (turno['id_paciente'],))
+            
+            if not contacto and not contacto_adicional:
+                print(f'[ERROR] No se encontró email para paciente {turno["id_paciente"]}')
+                return False
+            
+            email_destino = contacto['valor_contacto'] if contacto else contacto_adicional
+            
+            # 1. NOTIFICACIÓN INMEDIATA (confirmación)
+            fecha_envio_inmediato = datetime.now()
+            
+            query_notif_inmediata = '''
+            INSERT INTO Notificacion (
+                id_turno, medio_envio, destinatario, 
+                fecha_hora_envio, estado, intentos
+            ) VALUES (%s, 'Email', %s, %s, 'Pendiente', 0)
+            '''
+            
+            if self.db.ejecutar_consulta(query_notif_inmediata, 
+                                        (id_turno, email_destino, fecha_envio_inmediato)):
+                print(f'✓ Notificación INMEDIATA creada para turno {id_turno}')
+                print(f'  Envío: AHORA - {fecha_envio_inmediato.strftime("%Y-%m-%d %H:%M:%S")}')
+            
+            # 2. NOTIFICACIÓN RECORDATORIO (24hs antes)
+            fecha_turno = datetime.combine(turno['fecha'], turno['hora_inicio'])
+            fecha_envio_recordatorio = fecha_turno - timedelta(hours=24)
+            
+            # Solo crear recordatorio si el turno es en más de 24hs
+            if fecha_envio_recordatorio > datetime.now():
+                query_notif_recordatorio = '''
+                INSERT INTO Notificacion (
+                    id_turno, medio_envio, destinatario, 
+                    fecha_hora_envio, estado, intentos
+                ) VALUES (%s, 'Email', %s, %s, 'Pendiente', 0)
+                '''
+                
+                if self.db.ejecutar_consulta(query_notif_recordatorio, 
+                                            (id_turno, email_destino, fecha_envio_recordatorio)):
+                    print(f'✓ Notificación RECORDATORIO creada para turno {id_turno}')
+                    print(f'  Envío: {fecha_envio_recordatorio.strftime("%Y-%m-%d %H:%M:%S")}')
+            else:
+                print(f'⚠ Turno muy próximo, solo se envía confirmación inmediata')
+            
+            return True
+            
+        except Exception as e:
+            print(f'[ERROR] al crear notificaciones: {str(e)}')
+            return False
+        finally:
+            self.db.desconectar()
+    
+    # ...existing code...
